@@ -129,7 +129,7 @@ else
   PROTECTION_JSON="$(timeout 15 gh api "repos/${REPO_FULL}/branches/main/protection" 2>/dev/null || echo "{}")"
 
   # 5.1 Required approving reviews >= 1
-  REQ_REVIEWS="$(echo "${PROTECTION_JSON}" | jq -r '.required_pull_request_reviews.required_approving_review_count // 0' 2>/dev/null || echo 0)"
+  REQ_REVIEWS="$(echo "${PROTECTION_JSON}" | jq -r 'if .required_pull_request_reviews != null then .required_pull_request_reviews.required_approving_review_count else 0 end' 2>/dev/null || echo 0)"
   if [[ "${REQ_REVIEWS}" -ge 1 ]]; then
     pass "Required approving review count is ${REQ_REVIEWS} (>= 1 required)."
   else
@@ -137,7 +137,7 @@ else
   fi
 
   # 5.2 Dismiss stale reviews
-  DISMISS_STALE="$(echo "${PROTECTION_JSON}" | jq -r '.required_pull_request_reviews.dismiss_stale_reviews // false' 2>/dev/null || echo false)"
+  DISMISS_STALE="$(echo "${PROTECTION_JSON}" | jq -r 'if .required_pull_request_reviews != null then (.required_pull_request_reviews.dismiss_stale_reviews | tostring) else "null" end' 2>/dev/null || echo "null")"
   if [[ "${DISMISS_STALE}" == "true" ]]; then
     pass "Dismiss stale reviews on new commit is ENABLED."
   else
@@ -145,7 +145,7 @@ else
   fi
 
   # 5.3 Enforce for admins
-  ENFORCE_ADMINS="$(echo "${PROTECTION_JSON}" | jq -r '.enforce_admins.enabled // false' 2>/dev/null || echo false)"
+  ENFORCE_ADMINS="$(echo "${PROTECTION_JSON}" | jq -r 'if .enforce_admins != null then (.enforce_admins.enabled | tostring) else "null" end' 2>/dev/null || echo "null")"
   if [[ "${ENFORCE_ADMINS}" == "true" ]]; then
     pass "Enforce admins is ENABLED."
   else
@@ -153,19 +153,19 @@ else
   fi
 
   # 5.4 Block force pushes
-  ALLOW_FORCE="$(echo "${PROTECTION_JSON}" | jq -r '.allow_force_pushes.enabled // true' 2>/dev/null || echo true)"
+  ALLOW_FORCE="$(echo "${PROTECTION_JSON}" | jq -r 'if .allow_force_pushes != null then (.allow_force_pushes.enabled | tostring) else "null" end' 2>/dev/null || echo "null")"
   if [[ "${ALLOW_FORCE}" == "false" ]]; then
     pass "Force pushes are BLOCKED (allow_force_pushes = false)."
   else
-    fail "Force pushes are NOT blocked."
+    fail "Force pushes are NOT blocked (allow_force_pushes = ${ALLOW_FORCE})."
   fi
 
   # 5.5 Block branch deletion
-  ALLOW_DEL="$(echo "${PROTECTION_JSON}" | jq -r '.allow_deletions.enabled // true' 2>/dev/null || echo true)"
+  ALLOW_DEL="$(echo "${PROTECTION_JSON}" | jq -r 'if .allow_deletions != null then (.allow_deletions.enabled | tostring) else "null" end' 2>/dev/null || echo "null")"
   if [[ "${ALLOW_DEL}" == "false" ]]; then
     pass "Branch deletion is BLOCKED (allow_deletions = false)."
   else
-    fail "Branch deletion is NOT blocked."
+    fail "Branch deletion is NOT blocked (allow_deletions = ${ALLOW_DEL})."
   fi
 fi
 
