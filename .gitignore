@@ -1,0 +1,80 @@
+# ==============================================================================
+# EcoSort Monorepo .gitignore
+# Strictly enforced hygiene for Flutter, Python/ML, OS/IDE, and internal artifacts
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Flutter / Dart / Android / Gradle
+# ------------------------------------------------------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+android/.gradle/
+android/app/build/
+android/captures/
+android/gradlew
+android/gradlew.bat
+local.properties
+GeneratedPluginRegistrant.java
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# ------------------------------------------------------------------------------
+# Python / Virtual Environments / Caches
+# ------------------------------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ------------------------------------------------------------------------------
+# Machine Learning: Raw Datasets & Binary Weights (Anti-Bloat Policy)
+# Raw camera frames and dataset archives must NEVER be committed to Git.
+# Models and datasets are tracked via external storage / release assets.
+# ------------------------------------------------------------------------------
+ml/datasets/*
+!ml/datasets/.gitkeep
+ml/**/*.jpg
+ml/**/*.jpeg
+ml/**/*.png
+ml/**/*.zip
+ml/**/*.tar.gz
+ml/**/*.tar
+ml/weights/*.onnx
+ml/weights/*.tflite
+
+# ------------------------------------------------------------------------------
+# IDE & Operating System Artifacts
+# ------------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ------------------------------------------------------------------------------
+# Project Governance & Internal Agent Artifacts (CRITICAL - DO NOT COMMIT)
+# ------------------------------------------------------------------------------
+GEMINI.md
+*pr*report*.md
+*PR*REPORT*.md
+*_pr_report.md
+*PR_REPORT*.md
+PR_REPORT*.md
