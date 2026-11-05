@@ -72,9 +72,11 @@ desktop.ini
 # ------------------------------------------------------------------------------
 # Project Governance & Internal Agent Artifacts (CRITICAL - DO NOT COMMIT)
 # ------------------------------------------------------------------------------
+*GEMINI.md
 GEMINI.md
 *pr*report*.md
 *PR*REPORT*.md
 *_pr_report.md
 *PR_REPORT*.md
 PR_REPORT*.md
+Yen/
