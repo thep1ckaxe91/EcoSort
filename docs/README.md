@@ -7,6 +7,9 @@
 - **Course**: Human-Computer Interaction (HCI) — VNU University of Engineering and Technology (VNU-UET)
 - **Primary Mission**: House all human-centered research, user empathy artifacts, prototype designs, usability evaluation plans, and experimental protocols.
 
+## Core Specifications
+- **[MVP User Stories & Acceptance Criteria](user_stories_mvp.md)** (`docs/user_stories_mvp.md`): The official engineering contract and measurable BDD acceptance criteria for Sprint 1 and Sprint 2 development (covering US-01 through US-05, lecturer feedback, accessibility standards, state-aware logic, and non-functional requirements).
+
 ## HCI Engineering Deliverables
 1. **Target User Personas**:
    - *Persona 1*: Urban Household Resident (Fast-paced, needs classification in $<3$ seconds at the bin).
@@ -31,6 +34,7 @@ docs/
 ├── wireframes/          # UI mockups, Figma links, flow diagrams
 ├── evaluation/          # SUS questionnaires, user trial protocols, feedback analysis
 ├── guidelines/          # Data collection guidelines & photo labeling standard
+├── user_stories_mvp.md  # Official MVP User Stories & BDD Acceptance Criteria (Sprint 1-2)
 └── README.md
 ```
 
