@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ecosort.uet.vnu.edu.vn/schemas/waste_rule_schema.json",
+  "title": "EcoSortStateAwareKnowledgeBase",
+  "description": "JSON Schema cho Cơ sở tri thức phân loại rác phụ thuộc trạng thái (State-Aware Knowledge Base) tuân thủ Luật Bảo vệ môi trường 2020 (Điều 75).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "legal_reference",
+    "total_classes",
+    "streams",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "legal_reference": {
+      "type": "string"
+    },
+    "total_classes": {
+      "type": "integer",
+      "const": 20
+    },
+    "streams": {
+      "type": "object",
+      "required": ["recyclable", "food_waste", "residual_waste"],
+      "additionalProperties": false,
+      "properties": {
+        "recyclable": { "$ref": "#/$defs/streamDefinition" },
+        "food_waste": { "$ref": "#/$defs/streamDefinition" },
+        "residual_waste": { "$ref": "#/$defs/streamDefinition" }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/wasteRuleItem"
+      }
+    }
+  },
+  "$defs": {
+    "streamEnum": {
+      "type": "string",
+      "enum": ["recyclable", "food_waste", "residual_waste"]
+    },
+    "streamDefinition": {
+      "type": "object",
+      "required": ["name_vi", "color_name_vi", "color_hex", "description_vi"],
+      "additionalProperties": false,
+      "properties": {
+        "name_vi": { "type": "string", "minLength": 1 },
+        "color_name_vi": { "type": "string", "minLength": 1 },
+        "color_hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "description_vi": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stateBranch": {
+      "type": "object",
+      "required": [
+        "is_clean",
+        "has_food",
+        "ui_option_label_vi",
+        "resolved_stream",
+        "actionable_instructions_vi",
+        "tts_readout_vi"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "is_clean": {
+          "type": "boolean",
+          "description": "True nếu vật phẩm đã được tráng/rửa sạch, khô ráo, không dính dầu mỡ."
+        },
+        "has_food": {
+          "type": "boolean",
+          "description": "True nếu bên trong hoặc trên bề mặt vật phẩm còn thức ăn thừa hoặc chất lỏng hữu cơ."
+        },
+        "ui_option_label_vi": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nhãn nút chọn hiển thị trong Clarification Dialog (hoặc Mặc định nếu không cần hỏi)."
+        },
+        "resolved_stream": {
+          "$ref": "#/$defs/streamEnum"
+        },
+        "secondary_food_stream_required": {
+          "type": "boolean",
+          "default": false,
+          "description": "True nếu người dùng cần trút phần thức ăn thừa sang thùng Rác thực phẩm trước khi vứt vỏ."
+        },
+        "actionable_instructions_vi": {
+          "type": "string",
+          "minLength": 10
+        },
+        "tts_readout_vi": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 180,
+          "description": "Câu thoại tiếng Việt tự nhiên đọc qua Flutter TTS cho chế độ Người cao tuổi (US-03)."
+        }
+      }
+    },
+    "wasteRuleItem": {
+      "type": "object",
+      "required": [
+        "class_index",
+        "item_id",
+        "category_code",
+        "common_names",
+        "default_stream",
+        "condition",
+        "requires_clarification",
+        "is_hazardous",
+        "clarification_question_vi",
+        "state_rules"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "class_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 19
+        },
+        "item_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "category_code": {
+          "type": "string",
+          "enum": ["plastic", "metal", "paper", "glass", "organic", "composite", "textile_medical", "ceramic", "hazardous"]
+        },
+        "common_names": {
+          "type": "object",
+          "required": ["vi", "en"],
+          "additionalProperties": false,
+          "properties": {
+            "vi": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "en": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "default_stream": {
+          "$ref": "#/$defs/streamEnum"
+        },
+        "condition": {
+          "type": "string",
+          "enum": ["none", "cleanliness_check", "food_separation_check", "hazardous_handling"]
+        },
+        "requires_clarification": {
+          "type": "boolean"
+        },
+        "is_hazardous": {
+          "type": "boolean"
+        },
+        "clarification_question_vi": {
+          "type": ["string", "null"]
+        },
+        "state_rules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/stateBranch"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,635 @@
+{
+  "schema_version": "1.0.0",
+  "legal_reference": "Luật Bảo vệ môi trường 2020 số 72/2020/QH14 (Điều 75) & Nghị định 45/2022/NĐ-CP (Điều 26)",
+  "total_classes": 20,
+  "streams": {
+    "recyclable": {
+      "name_vi": "Rác tái chế",
+      "color_name_vi": "Màu Cam",
+      "color_hex": "#FF9800",
+      "description_vi": "Chất thải rắn có khả năng tái sử dụng, tái chế (nhựa sạch, giấy khô, kim loại, thủy tinh nguyên vẹn)."
+    },
+    "food_waste": {
+      "name_vi": "Rác thực phẩm",
+      "color_name_vi": "Màu Xanh lá",
+      "color_hex": "#4CAF50",
+      "description_vi": "Thức ăn thừa, rau củ quả hỏng, vỏ trái cây, bã trà/cà phê dễ phân hủy sinh học."
+    },
+    "residual_waste": {
+      "name_vi": "Rác sinh hoạt khác",
+      "color_name_vi": "Màu Xám",
+      "color_hex": "#757575",
+      "description_vi": "Rác còn lại không thể tái chế (bao bì dính dầu mỡ, hộp xốp, giấy ăn bẩn, mảnh sành sứ) và rác nguy hại cần lưu chứa riêng."
+    }
+  },
+  "rules": [
+    {
+      "class_index": 0,
+      "item_id": "chai_nhua_pet",
+      "category_code": "plastic",
+      "common_names": {
+        "vi": ["Chai nhựa PET", "Vỏ chai nước suối", "Chai nước ngọt nhựa"],
+        "en": ["PET plastic bottle", "Water bottle", "Soda bottle"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Chai nhựa này đã được đổ hết nước và tráng sạch bên trong chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã rửa sạch / Khô ráo",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Tháo rời nắp chai, bóp dẹt thân chai để tiết kiệm diện tích và bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Đây là chai nhựa sạch, hãy bóp dẹt và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Dính bẩn / Còn nước hoặc thức ăn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Đổ bỏ chất lỏng/cặn thừa. Hãy tráng sạch để tái chế, hoặc bỏ vào thùng Rác sinh hoạt khác (Màu Xám) nếu dính dầu mỡ.",
+          "tts_readout_vi": "Chai nhựa còn cặn bẩn, hãy đổ hết nước và tráng sạch để tái chế, hoặc bỏ vào thùng rác khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 1,
+      "item_id": "lon_nhom",
+      "category_code": "metal",
+      "common_names": {
+        "vi": ["Lon nhôm", "Vỏ lon bia", "Vỏ lon nước ngọt"],
+        "en": ["Aluminum can", "Beer can", "Soda can"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Lon nhôm này đã đổ cạn nước ngọt/bia bên trong chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã đổ cạn & Tráng sạch",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Đổ cạn hoàn toàn, bóp dẹt vỏ lon và bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Đây là vỏ lon nhôm sạch, hãy bóp dẹt và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn nước thừa / Dính bẩn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Nước ngọt thừa thu hút côn trùng và làm bẩn giấy tái chế. Hãy đổ cạn, tráng nước rồi bỏ thùng Cam, hoặc bỏ thùng Xám.",
+          "tts_readout_vi": "Lon nhôm còn nước thừa, hãy đổ cạn và tráng qua nước trước khi bỏ vào thùng tái chế màu cam."
+        }
+      ]
+    },
+    {
+      "class_index": 2,
+      "item_id": "hop_sua_giay",
+      "category_code": "composite",
+      "common_names": {
+        "vi": ["Vỏ hộp sữa giấy", "Hộp sữa tươi Tetra Pak", "Hộp nước trái cây giấy"],
+        "en": ["Tetra Pak milk carton", "Paper beverage carton"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Hộp sữa giấy này đã được tráng sạch sữa thừa và bóp dẹt chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã rửa sạch / Khô ráo",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Rút bỏ ống hút nhựa, tráng sạch bên trong, trải phẳng hộp và bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Vỏ hộp sữa đã sạch, hãy bóp dẹt và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn cặn sữa / Chưa rửa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Cặn sữa thừa gây chua mốc, làm hỏng lô giấy tái chế. Hãy bỏ vào thùng Rác sinh hoạt khác (Màu Xám) hoặc súc sạch để tái chế.",
+          "tts_readout_vi": "Hộp sữa còn cặn bẩn, hãy bỏ vào thùng rác sinh hoạt khác màu xám hoặc tráng sạch để tái chế."
+        }
+      ]
+    },
+    {
+      "class_index": 3,
+      "item_id": "coc_nhua_tra_sua",
+      "category_code": "plastic",
+      "common_names": {
+        "vi": ["Cốc nhựa trà sữa", "Ly nhựa cà phê mang đi", "Cốc nhựa dùng 1 lần"],
+        "en": ["Bubble tea plastic cup", "Takeaway coffee plastic cup"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Cốc nhựa này đã đổ hết đá, trân châu và tráng sạch chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã rửa sạch / Khô ráo",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Bóc bỏ màng ép miệng cốc và ống hút, phần thân cốc nhựa sạch bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Cốc nhựa đã rửa sạch, hãy bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn trân châu / Sữa / Đá thừa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Đổ phần trân châu/thạch thừa vào thùng Rác thực phẩm (Xanh lá), sau đó bỏ vỏ cốc bẩn vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Cốc còn trân châu hoặc nước thừa, hãy đổ phần ăn được vào thùng thực phẩm xanh lá và bỏ vỏ cốc vào thùng xám."
+        }
+      ]
+    },
+    {
+      "class_index": 4,
+      "item_id": "giay_bao_sach_vo",
+      "category_code": "paper",
+      "common_names": {
+        "vi": ["Giấy báo cũ", "Sách vở cũ", "Giấy in văn phòng"],
+        "en": ["Old newspaper", "Used notebooks", "Office paper"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Giấy này còn khô ráo và sạch hay đã bị thấm dầu mỡ/ước bẩn?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Khô ráo & Sạch",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Tháo ghim sắt hoặc bìa nhựa bọc ngoài, xếp phẳng và bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Đây là giấy sạch và khô, hãy xếp gọn và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Thấm dầu mỡ / Ướt bẩn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Giấy dính dầu mỡ hoặc ướt bẩn không thể tái chế thành bột giấy mới. Hãy bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Giấy đã dính dầu mỡ hoặc ướt bẩn, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 5,
+      "item_id": "thung_bia_carton",
+      "category_code": "paper",
+      "common_names": {
+        "vi": ["Thùng bìa carton", "Hộp giấy đóng hàng", "Hộp bánh pizza bằng bìa"],
+        "en": ["Cardboard box", "Shipping carton", "Pizza box"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Bìa carton này có sạch khô hay bị dính dầu mỡ thức ăn (như đáy hộp pizza)?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Khô ráo & Không dính mỡ",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Bóc bỏ băng dính nhựa và tem vận đơn, gấp phẳng thùng carton và bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Bìa các tông sạch, hãy gỡ băng dính, gấp phẳng và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Dính dầu mỡ / Thức ăn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Gạt thức ăn thừa vào thùng Thực phẩm (Xanh lá). Phần bìa thấm dầu mỡ hãy xé rời và bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Bìa các tông đã thấm dầu mỡ, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 6,
+      "item_id": "chai_lo_thuy_tinh",
+      "category_code": "glass",
+      "common_names": {
+        "vi": ["Chai thủy tinh", "Chai nước mắm thủy tinh", "Lọ thủy tinh đựng gia vị"],
+        "en": ["Glass bottle", "Fish sauce glass bottle", "Glass jar"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Chai lọ thủy tinh này còn nguyên vẹn và đã tráng sạch cặn mắm/gia vị chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã tráng sạch & Nguyên vẹn",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Tháo nắp nhựa/kim loại, đặt nhẹ nhàng vào thùng Rác tái chế (Màu Cam) để tránh nứt vỡ.",
+          "tts_readout_vi": "Chai thủy tinh nguyên vẹn đã sạch, hãy đặt nhẹ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn sốt gia vị / Chưa rửa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Hãy đổ hết gia vị/mắm thừa và tráng sạch để bỏ thùng Tái chế (Cam); nếu không thể làm sạch, đậy kín nắp và bỏ thùng Xám.",
+          "tts_readout_vi": "Chai thủy tinh còn cặn bẩn, hãy tráng sạch nước trước khi bỏ vào thùng tái chế màu cam."
+        }
+      ]
+    },
+    {
+      "class_index": 7,
+      "item_id": "do_hop_kim_loai",
+      "category_code": "metal",
+      "common_names": {
+        "vi": ["Vỏ đồ hộp kim loại", "Hộp cá hộp bằng sắt", "Lon sữa đặc bằng thiếc"],
+        "en": ["Metal food can", "Tin can", "Condensed milk can"]
+      },
+      "default_stream": "recyclable",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Vỏ đồ hộp này đã được vét hết thức ăn và rửa sạch dầu mỡ chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã rửa sạch dầu mỡ",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Ấn phần nắp sắc nhọn vào bên trong hộp để an toàn, sau đó bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Vỏ đồ hộp kim loại đã sạch, hãy cẩn thận cạnh sắc và bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn dầu mỡ / Thức ăn thừa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Vét hết thức ăn thừa sang thùng Rác thực phẩm (Xanh lá). Vỏ hộp dính mỡ chưa rửa phải bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Hộp kim loại còn dính thức ăn, hãy đổ thức ăn vào thùng xanh lá và bỏ vỏ bẩn vào thùng xám."
+        }
+      ]
+    },
+    {
+      "class_index": 8,
+      "item_id": "rau_cu_qua_thua",
+      "category_code": "organic",
+      "common_names": {
+        "vi": ["Rau củ quả héo hỏng", "Vỏ trái cây", "Gốc rau thừa"],
+        "en": ["Vegetable scraps", "Fruit peels", "Spoiled produce"]
+      },
+      "default_stream": "food_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Mặc định (Rác hữu cơ)",
+          "resolved_stream": "food_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Loại bỏ dây buộc nhựa hoặc túi ni-lông đựng ngoài, để ráo nước và bỏ vào thùng Rác thực phẩm (Màu Xanh lá).",
+          "tts_readout_vi": "Đây là rau củ quả thừa, hãy bỏ vào thùng rác thực phẩm màu xanh lá."
+        }
+      ]
+    },
+    {
+      "class_index": 9,
+      "item_id": "thuc_an_thua_com_canh",
+      "category_code": "organic",
+      "common_names": {
+        "vi": ["Cơm canh thừa", "Bún phở thừa", "Thịt cá xương nhỏ"],
+        "en": ["Leftover rice and soup", "Cooked food waste"]
+      },
+      "default_stream": "food_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Mặc định (Thức ăn thừa)",
+          "resolved_stream": "food_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Chắt bỏ phần nước canh lỏng qua lưới lọc bồn rửa, gom phần cái bỏ vào thùng Rác thực phẩm (Màu Xanh lá).",
+          "tts_readout_vi": "Đây là thức ăn thừa, hãy chắt bỏ nước và đổ vào thùng rác thực phẩm màu xanh lá."
+        }
+      ]
+    },
+    {
+      "class_index": 10,
+      "item_id": "ba_tra_ca_phe",
+      "category_code": "organic",
+      "common_names": {
+        "vi": ["Bã trà", "Bã cà phê", "Lá chè xanh đã pha"],
+        "en": ["Tea leaves residue", "Coffee grounds"]
+      },
+      "default_stream": "food_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Mặc định (Bã hữu cơ)",
+          "resolved_stream": "food_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Để ráo nước, nếu là trà túi lọc bằng lưới nhựa hãy xé lấy bã bỏ vào thùng Rác thực phẩm (Màu Xanh lá).",
+          "tts_readout_vi": "Đây là bã trà và cà phê, hãy bỏ vào thùng rác thực phẩm màu xanh lá."
+        }
+      ]
+    },
+    {
+      "class_index": 11,
+      "item_id": "vo_trung",
+      "category_code": "organic",
+      "common_names": {
+        "vi": ["Vỏ trứng gà", "Vỏ trứng vịt", "Vỏ trứng cút"],
+        "en": ["Eggshells"]
+      },
+      "default_stream": "food_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Mặc định (Vỏ trứng)",
+          "resolved_stream": "food_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Bóp vụn vỏ trứng để dễ phân hủy sinh học và bỏ vào thùng Rác thực phẩm (Màu Xanh lá).",
+          "tts_readout_vi": "Đây là vỏ trứng, hãy bóp nhỏ và bỏ vào thùng rác thực phẩm màu xanh lá."
+        }
+      ]
+    },
+    {
+      "class_index": 12,
+      "item_id": "la_chuoi_la_dong",
+      "category_code": "organic",
+      "common_names": {
+        "vi": ["Lá chuối gói xôi", "Lá dong gói bánh chưng", "Lá sen gói cốm"],
+        "en": ["Banana leaf wrapper", "Dong leaf wrapper"]
+      },
+      "default_stream": "food_waste",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Lá gói này chỉ là lá tự nhiên hay có quấn chặt băng dính nhựa / túi nilon?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": true,
+          "ui_option_label_vi": "Chỉ có lá tự nhiên / Đã tháo nilon",
+          "resolved_stream": "food_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Tháo bỏ dây lạt nhựa hoặc túi bóng bọc ngoài, phần lá chuối/lá dong bỏ vào thùng Rác thực phẩm (Màu Xanh lá).",
+          "tts_readout_vi": "Đây là lá gói tự nhiên, hãy tháo bỏ dây nhựa và cho vào thùng rác thực phẩm màu xanh lá."
+        },
+        {
+          "is_clean": false,
+          "has_food": false,
+          "ui_option_label_vi": "Dính băng keo nhựa / Nilon không tách được",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Lá bị quấn chặt băng dính nhựa không thể ủ phân hữu cơ. Hãy bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Lá gói dính nhiều băng keo nhựa, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 13,
+      "item_id": "hop_xop_dung_thuc_an",
+      "category_code": "plastic",
+      "common_names": {
+        "vi": ["Hộp xốp đựng cơm", "Hộp xốp đựng xôi/bún", "Khay xốp đựng thực phẩm"],
+        "en": ["Styrofoam meal box", "EPS foam food container"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "food_separation_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Bên trong hộp xốp này đã được đổ hết thức ăn thừa ra ngoài chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã đổ hết thức ăn thừa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Nhựa xốp EPS dùng 1 lần không có giá trị tái chế tại nguồn. Hãy bẻ gọn hộp xốp và bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Hộp xốp không tái chế được, hãy bẻ gọn và bỏ vào thùng rác sinh hoạt khác màu xám."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn thức ăn thừa bên trong",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "BẮT BUỘC trút hết cơm/thức ăn thừa vào thùng Rác thực phẩm (Xanh lá) trước, sau đó bỏ vỏ hộp xốp vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Hãy đổ hết thức ăn thừa sang thùng màu xanh lá, sau đó bỏ vỏ hộp xốp vào thùng rác khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 14,
+      "item_id": "tui_nilon_ban",
+      "category_code": "plastic",
+      "common_names": {
+        "vi": ["Túi ni-lông đi chợ", "Màng bọc thực phẩm", "Túi bóng kính"],
+        "en": ["Plastic grocery bag", "Cling film wrap"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "cleanliness_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Túi ni-lông này còn sạch, khô ráo hay đã dính bẩn/ướt thức ăn?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Túi dày, Sạch & Khô ráo",
+          "resolved_stream": "recyclable",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Nên giữ lại để tái sử dụng nhiều lần, hoặc buộc gọn bỏ vào thùng Rác tái chế (Màu Cam).",
+          "tts_readout_vi": "Túi ni lông sạch và khô, hãy giữ lại dùng tiếp hoặc bỏ vào thùng rác tái chế màu cam."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Dính bẩn / Ướt / Màng bọc thức ăn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Đổ bỏ rác thực phẩm bên trong (nếu có), sau đó bỏ túi ni-lông bẩn vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Túi ni lông đã dính bẩn, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 15,
+      "item_id": "giay_an_da_qua_su_dung",
+      "category_code": "paper",
+      "common_names": {
+        "vi": ["Giấy ăn đã qua sử dụng", "Khăn giấy lau miệng", "Khăn ướt đã dùng"],
+        "en": ["Used tissue paper", "Soiled paper napkin", "Wet wipes"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": false,
+          "ui_option_label_vi": "Mặc định (Giấy ăn bẩn)",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Giấy ăn đã dùng dính dầu mỡ và dịch tiết không thể tái chế. Hãy bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Giấy ăn đã qua sử dụng không tái chế được, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 16,
+      "item_id": "khau_trang_y_te",
+      "category_code": "textile_medical",
+      "common_names": {
+        "vi": ["Khẩu trang y tế đã dùng", "Khẩu trang vải cũ hỏng"],
+        "en": ["Used surgical mask", "Disposable face mask"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": false,
+          "has_food": false,
+          "ui_option_label_vi": "Mặc định (Khẩu trang đã dùng)",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Gập đôi mặt trong lại, dùng dây đeo buộc gọn để tránh phát tán vi khuẩn và bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Đây là khẩu trang đã dùng, hãy cuộn gọn và bỏ vào thùng rác sinh hoạt khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 17,
+      "item_id": "manh_gom_su_thuy_tinh_vo",
+      "category_code": "ceramic",
+      "common_names": {
+        "vi": ["Mảnh bát đĩa sành sứ vỡ", "Mảnh cốc thủy tinh vỡ", "Chậu gốm vỡ"],
+        "en": ["Broken ceramics", "Shattered glass shards", "Broken porcelain"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "none",
+      "requires_clarification": false,
+      "is_hazardous": false,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Mặc định (Vật sắc nhọn vỡ)",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "CẢNH BÁO SẮC NHỌN: Bọc kỹ bằng nhiều lớp giấy báo dày hoặc hộp cứng, dán kín rồi mới bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Mảnh sành sứ và thủy tinh vỡ rất sắc nhọn, hãy bọc kỹ bằng giấy dày rồi bỏ vào thùng rác khác màu xám."
+        }
+      ]
+    },
+    {
+      "class_index": 18,
+      "item_id": "pin_da_qua_su_dung",
+      "category_code": "hazardous",
+      "common_names": {
+        "vi": ["Pin tiểu đã dùng", "Pin đồng hồ/điều khiển", "Pin sạc dự phòng hỏng"],
+        "en": ["Used household battery", "AA/AAA battery", "Lithium battery"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "hazardous_handling",
+      "requires_clarification": false,
+      "is_hazardous": true,
+      "clarification_question_vi": null,
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Mặc định (Chất thải nguy hại)",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "RÁC NGUY HẠI: Tuyệt đối không vứt chung vào thùng rác thực phẩm hay tái chế! Hãy cất vào lọ khô riêng và mang tới điểm thu hồi pin.",
+          "tts_readout_vi": "Cảnh báo, đây là pin thải nguy hại, tuyệt đối không vứt lẫn rác thường, hãy gom riêng để mang tới điểm thu hồi."
+        }
+      ]
+    },
+    {
+      "class_index": 19,
+      "item_id": "vo_goi_mi_bim_bim",
+      "category_code": "composite",
+      "common_names": {
+        "vi": ["Vỏ gói mì tôm", "Vỏ gói bim bim (snack)", "Vỏ gói cà phê hòa tan tráng nhôm"],
+        "en": ["Instant noodle wrapper", "Snack chip bag", "Multi-layer foil pouch"]
+      },
+      "default_stream": "residual_waste",
+      "condition": "food_separation_check",
+      "requires_clarification": true,
+      "is_hazardous": false,
+      "clarification_question_vi": "Vỏ gói này đã được đổ hết vụn thức ăn/dầu mỡ bên trong chưa?",
+      "state_rules": [
+        {
+          "is_clean": true,
+          "has_food": false,
+          "ui_option_label_vi": "Đã đổ sạch vụn thức ăn",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": false,
+          "actionable_instructions_vi": "Bao bì phức hợp nhiều lớp tráng nhôm không thể tái chế cơ học. Hãy xếp gọn và bỏ vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Vỏ gói mì và bim bim không tái chế được, hãy bỏ vào thùng rác sinh hoạt khác màu xám."
+        },
+        {
+          "is_clean": false,
+          "has_food": true,
+          "ui_option_label_vi": "Còn vụn mì / Gia vị thừa",
+          "resolved_stream": "residual_waste",
+          "secondary_food_stream_required": true,
+          "actionable_instructions_vi": "Trút hết vụn thức ăn thừa vào thùng Rác thực phẩm (Xanh lá), sau đó bỏ vỏ gói vào thùng Rác sinh hoạt khác (Màu Xám).",
+          "tts_readout_vi": "Hãy đổ hết vụn thức ăn thừa vào thùng xanh lá, sau đó bỏ vỏ gói vào thùng rác khác màu xám."
+        }
+      ]
+    }
+  ]
+}
