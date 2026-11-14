@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ecosort.uet.vnu.edu.vn/schemas/waste_rule_schema.json",
   "title": "EcoSortStateAwareKnowledgeBase",
-  "description": "JSON Schema cho Cơ sở tri thức phân loại rác phụ thuộc trạng thái (State-Aware Knowledge Base) tuân thủ Luật Bảo vệ môi trường 2020 (Điều 75).",
+  "description": "JSON Schema cho Cơ sở tri thức phân loại rác phụ thuộc trạng thái (State-Aware Knowledge Base) tuân thủ Luật BVMT 2020 (Điều 75) & CV 9368/BTNMT-KSONMT.",
   "type": "object",
   "required": [
     "schema_version",
@@ -31,7 +31,8 @@
       "properties": {
         "recyclable": { "$ref": "#/$defs/streamDefinition" },
         "food_waste": { "$ref": "#/$defs/streamDefinition" },
-        "residual_waste": { "$ref": "#/$defs/streamDefinition" }
+        "residual_waste": { "$ref": "#/$defs/streamDefinition" },
+        "hazardous_display": { "$ref": "#/$defs/streamDefinition" }
       }
     },
     "rules": {
@@ -66,6 +67,7 @@
         "has_food",
         "ui_option_label_vi",
         "resolved_stream",
+        "legal_citation",
         "actionable_instructions_vi",
         "tts_readout_vi"
       ],
@@ -73,11 +75,11 @@
       "properties": {
         "is_clean": {
           "type": "boolean",
-          "description": "True nếu vật phẩm đã được tráng/rửa sạch, khô ráo, không dính dầu mỡ."
+          "description": "True nếu vật phẩm sạch/khô/nguyên vẹn/không lây nhiễm (tùy ngữ cảnh condition)."
         },
         "has_food": {
           "type": "boolean",
-          "description": "True nếu bên trong hoặc trên bề mặt vật phẩm còn thức ăn thừa hoặc chất lỏng hữu cơ."
+          "description": "True nếu còn thức ăn thừa hoặc chất lỏng hữu cơ."
         },
         "ui_option_label_vi": {
           "type": "string",
@@ -87,10 +89,20 @@
         "resolved_stream": {
           "$ref": "#/$defs/streamEnum"
         },
+        "is_hazardous_branch": {
+          "type": "boolean",
+          "default": false,
+          "description": "True nếu nhánh trạng thái này kích hoạt cảnh báo đỏ Chất thải nguy hại (mục 3.1 CV 9368)."
+        },
         "secondary_food_stream_required": {
           "type": "boolean",
           "default": false,
           "description": "True nếu người dùng cần trút phần thức ăn thừa sang thùng Rác thực phẩm trước khi vứt vỏ."
+        },
+        "legal_citation": {
+          "type": "string",
+          "minLength": 5,
+          "description": "Trích dẫn mục trong CV 9368/BTNMT-KSONMT phục vụ mục 'Vì sao?' trên UI."
         },
         "actionable_instructions_vi": {
           "type": "string",
@@ -155,7 +167,7 @@
         },
         "condition": {
           "type": "string",
-          "enum": ["none", "cleanliness_check", "food_separation_check", "hazardous_handling"]
+          "enum": ["none", "cleanliness_check", "food_separation_check", "material_check", "infectious_check", "hazardous_handling"]
         },
         "requires_clarification": {
           "type": "boolean"
