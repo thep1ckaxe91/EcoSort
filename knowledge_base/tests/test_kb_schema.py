@@ -160,6 +160,17 @@ def run_verification() -> int:
     assert any(r["item_id"] == "manh_gom_su_thuy_tinh_vo" for r in engine.search("sành sứ"))
     print("[PASS] Verified Vietnamese diacritic and unsigned search over common_names aliases.")
 
+    # 5. Parity check with mobile/assets/kb/
+    mobile_kb_dir = REPO_ROOT / "mobile" / "assets" / "kb"
+    if mobile_kb_dir.is_dir():
+        for fname, src_path in (("rules.json", RULES_PATH), ("labels.txt", LABELS_PATH)):
+            dst_path = mobile_kb_dir / fname
+            assert dst_path.is_file(), f"Missing mobile asset: {dst_path}"
+            assert dst_path.read_bytes() == src_path.read_bytes(), (
+                f"Asset drift detected between {src_path} and {dst_path}"
+            )
+        print("[PASS] Verified byte-for-byte parity between knowledge_base/ and mobile/assets/kb/.")
+
     print("======================================================================")
     print("ALL KNOWLEDGE BASE CHECKS PASSED (EXIT CODE 0)")
     return 0
