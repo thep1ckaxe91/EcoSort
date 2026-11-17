@@ -11,9 +11,9 @@
 ## Executive Summary & Engineering Scope
 
 This specification establishes the official engineering contract and verification boundaries for the **EcoSort MVP** mobile application (targeting Android 8.0+, API 26+). EcoSort provides real-time, on-device perception paired with a state-aware knowledge base to assist Vietnamese household residents in correctly separating waste into three statutory streams:
-1. **Rác tái chế (Recyclable Waste)** — Color Code: **Cam / Orange** (`#FF9800`)
-2. **Rác thực phẩm (Food Waste / Organic)** — Color Code: **Xanh lá / Green** (`#4CAF50`)
-3. **Rác thải sinh hoạt khác (Other / Residual Waste)** — Color Code: **Xám / Grey** (`#757575`)
+1. **Rác tái chế (Recyclable Waste)** — Color Code: **Cam / Orange** (`#C2410C`, WCAG AA `5.18:1`)
+2. **Rác thực phẩm (Food Waste / Organic)** — Color Code: **Xanh lá / Green** (`#2E7D32`, WCAG AA `5.13:1`)
+3. **Rác thải sinh hoạt khác (Other / Residual Waste)** — Color Code: **Xám / Grey** (`#4B5563`, WCAG AA `7.56:1`; Nguy hại: `#B42318`, `6.57:1`)
 
 ### Addressing Academic & Lecturer Feedback
 This specification directly addresses the 4 core critiques delivered during milestone evaluations:
@@ -80,9 +80,9 @@ This specification directly addresses the 4 core critiques delivered during mile
   - **Given** an inference result is produced with confidence score $\ge 60\%$,
   - **When** the result card renders on the screen,
   - **Then** it must strictly adhere to the national tripartite color coding:
-    - **Rác tái chế**: Cam / Orange banner (`#FF9800`) with high-contrast text.
-    - **Rác thực phẩm**: Xanh lá / Green banner (`#4CAF50`) with high-contrast text.
-    - **Rác sinh hoạt khác**: Xám / Grey banner (`#757575`) with high-contrast text.
+    - **Rác tái chế**: Cam / Orange banner (`#C2410C`) with high-contrast white text (`>= 4.5:1`).
+    - **Rác thực phẩm**: Xanh lá / Green banner (`#2E7D32`) with high-contrast white text (`>= 4.5:1`).
+    - **Rác sinh hoạt khác**: Xám / Grey banner (`#4B5563`) with high-contrast white text (`>= 4.5:1`; Đỏ `#B42318` for hazardous warnings).
   - **And** the card must display the localized item name (Tiếng Việt), the assigned stream name, actionable instructions (e.g., *"Tráng sạch nước sốt thừa, bóp dẹp"*), and a numeric confidence gauge (e.g., `Tin cậy: 88%`).
 
 - **AC-01.5: Low-Confidence Fallback & Heuristic Guidance**
