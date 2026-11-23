@@ -7,11 +7,13 @@ import '../knowledge_base/waste_rule_model.dart';
 class ClarificationDialog extends StatelessWidget {
   final String itemName;
   final ValueChanged<PhysicalState> onStateSelected;
+  final String? promptMessage;
 
   const ClarificationDialog({
     super.key,
     required this.itemName,
     required this.onStateSelected,
+    this.promptMessage,
   });
 
   @override
@@ -53,9 +55,9 @@ class ClarificationDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            AppStrings.dialogPromptDefault,
-            style: TextStyle(fontSize: 16, height: 1.4, color: AppColors.textSecondary),
+          Text(
+            promptMessage ?? AppStrings.dialogPromptDefault,
+            style: const TextStyle(fontSize: 16, height: 1.4, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
           Container(
