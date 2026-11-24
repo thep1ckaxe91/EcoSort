@@ -2,7 +2,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
-import '../classifier/classifier_model.dart';
 import '../classifier/waste_classifier.dart';
 import '../feedback/feedback_repository.dart';
 import '../history/eco_streak_repository.dart';
@@ -260,7 +259,7 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
             final decision = ruleRepo.resolvePhysicalState(rule!, state);
             _displayResult(
               itemName: itemName,
-              stream: decision.resolvedStream,
+              stream: decision.stream,
               instructions: decision.instructionsVi,
               classIndex: rule.classIndex,
               itemId: rule.itemId,
@@ -274,7 +273,7 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
       final decision = ruleRepo.resolveState(rule, isClean: true, hasFood: false);
       _displayResult(
         itemName: itemName,
-        stream: decision.resolvedStream,
+        stream: decision.stream,
         instructions: decision.instructionsVi,
         classIndex: rule.classIndex,
         itemId: rule.itemId,
@@ -367,6 +366,27 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
     final feedbackRepo = _feedbackRepository;
     if (feedbackRepo != null) {
       if (!feedbackRepo.hasPrivacyOptIn) {
+        final granted = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Đồng ý gửi phản hồi ẩn danh?'),
+            content: const Text(
+              'Phản hồi chỉ lưu nhãn phân loại ẩn danh (không lưu khuôn mặt hay dữ liệu cá nhân) '
+              'để cải thiện độ chính xác của EcoSort.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Đồng ý'),
+              ),
+            ],
+          ),
+        );
+        if (granted != true) return;
         await feedbackRepo.setPrivacyOptIn(true);
       }
       try {

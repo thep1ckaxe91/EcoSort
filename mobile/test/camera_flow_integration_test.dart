@@ -6,7 +6,6 @@ import 'package:ecosort/features/camera/camera_view.dart';
 import 'package:ecosort/features/classifier/waste_classifier.dart';
 import 'package:ecosort/features/feedback/feedback_repository.dart';
 import 'package:ecosort/features/history/eco_streak_repository.dart';
-import 'package:ecosort/features/knowledge_base/waste_rule_model.dart';
 import 'package:ecosort/features/knowledge_base/waste_rule_repository.dart';
 
 void main() {
@@ -55,7 +54,9 @@ void main() {
           "has_food": false,
           "ui_option_label_vi": "Mặc định",
           "resolved_stream": "recyclable",
-          "instructions_vi": "Bỏ vào thùng Rác tái chế (màu Cam)."
+          "legal_citation": "CV 9368/BTNMT-KSONMT, mục 1.3.1",
+          "actionable_instructions_vi": "Bỏ vào thùng Rác tái chế (màu Cam).",
+          "tts_readout_vi": "Lon nhôm bỏ vào thùng rác tái chế màu cam."
         }
       ]
     },
@@ -78,14 +79,18 @@ void main() {
           "has_food": false,
           "ui_option_label_vi": "Đã rửa sạch / Khô ráo",
           "resolved_stream": "recyclable",
-          "instructions_vi": "Bỏ thùng Rác tái chế."
+          "legal_citation": "CV 9368/BTNMT-KSONMT, mục 1.1.1",
+          "actionable_instructions_vi": "Bỏ thùng Rác tái chế.",
+          "tts_readout_vi": "Hộp sữa giấy sạch bỏ vào thùng rác tái chế màu cam."
         },
         {
           "is_clean": false,
           "has_food": false,
           "ui_option_label_vi": "Còn bẩn / Chưa tráng",
           "resolved_stream": "residual_waste",
-          "instructions_vi": "Bỏ thùng Rác sinh hoạt khác."
+          "legal_citation": "CV 9368/BTNMT-KSONMT, mục 1.1.2",
+          "actionable_instructions_vi": "Bỏ thùng Rác sinh hoạt khác.",
+          "tts_readout_vi": "Hộp sữa bẩn bỏ vào thùng rác sinh hoạt khác màu xám."
         }
       ]
     }
@@ -208,6 +213,11 @@ void main() {
 
       // Nhấn nút "Kết quả này sai?"
       await tester.tap(find.text(AppStrings.reportWrongButton));
+      await tester.pumpAndSettle();
+
+      // Xác nhận hộp thoại Opt-In quyền riêng tư (US-04 AC-04.4) xuất hiện
+      expect(find.text('Đồng ý gửi phản hồi ẩn danh?'), findsOneWidget);
+      await tester.tap(find.text('Đồng ý'));
       await tester.pumpAndSettle();
 
       // Kiểm tra báo cáo feedback đã được lưu vào hàng đợi offline

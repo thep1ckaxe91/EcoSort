@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ecosort/features/classifier/classifier_model.dart';
 import 'package:ecosort/features/classifier/waste_classifier.dart';
 
 void main() {

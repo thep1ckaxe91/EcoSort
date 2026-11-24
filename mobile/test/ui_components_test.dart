@@ -105,14 +105,14 @@ void main() {
 
       // Xác nhận ResultCard xuất hiện với nhãn rác tái chế màu Cam
       expect(find.text(AppStrings.streamRecyclable), findsOneWidget);
-      expect(find.text('Hộp sữa giấy'), findsOneWidget);
+      expect(find.text('Vỏ hộp sữa giấy'), findsOneWidget);
 
       // Đóng thẻ kết quả
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
       // Xác nhận thẻ kết quả đã được đóng
-      expect(find.text('Hộp sữa giấy'), findsNothing);
+      expect(find.text('Vỏ hộp sữa giấy'), findsNothing);
     });
 
     test('ClassifierResult isConfident threshold is 0.60 per PRD & HCI review', () {
