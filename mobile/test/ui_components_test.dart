@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ecosort/core/constants/app_colors.dart';
 import 'package:ecosort/core/constants/app_strings.dart';
 import 'package:ecosort/features/camera/camera_view.dart';
+import 'package:ecosort/features/classifier/classifier_model.dart';
 import 'package:ecosort/features/knowledge_base/waste_rule_model.dart';
 import 'package:ecosort/features/result/clarification_dialog.dart';
 import 'package:ecosort/features/result/result_card.dart';
@@ -103,14 +105,43 @@ void main() {
 
       // Xác nhận ResultCard xuất hiện với nhãn rác tái chế màu Cam
       expect(find.text(AppStrings.streamRecyclable), findsOneWidget);
-      expect(find.text('Hộp sữa giấy'), findsOneWidget);
+      expect(find.text('Vỏ hộp sữa giấy'), findsOneWidget);
 
       // Đóng thẻ kết quả
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
       // Xác nhận thẻ kết quả đã được đóng
-      expect(find.text('Hộp sữa giấy'), findsNothing);
+      expect(find.text('Vỏ hộp sữa giấy'), findsNothing);
+    });
+
+    test('ClassifierResult isConfident threshold is 0.60 per PRD & HCI review', () {
+      const confidentResult = ClassifierResult(
+        label: 'chai_nhua_pet',
+        confidence: 0.60,
+        inferenceTimeMs: 45,
+      );
+      const highConfidentResult = ClassifierResult(
+        label: 'chai_nhua_pet',
+        confidence: 0.85,
+        inferenceTimeMs: 50,
+      );
+      const lowConfidentResult = ClassifierResult(
+        label: 'chai_nhua_pet',
+        confidence: 0.59,
+        inferenceTimeMs: 40,
+      );
+
+      expect(confidentResult.isConfident, isTrue);
+      expect(highConfidentResult.isConfident, isTrue);
+      expect(lowConfidentResult.isConfident, isFalse);
+    });
+
+    test('AppColors conform to WCAG 2.1 AA approved palette', () {
+      expect(AppColors.recyclable, const Color(0xFFC2410C));
+      expect(AppColors.foodWaste, const Color(0xFF2E7D32));
+      expect(AppColors.residualWaste, const Color(0xFF4B5563));
+      expect(AppColors.hazardous, const Color(0xFFB42318));
     });
   });
 }

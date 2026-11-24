@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 
 /// Bảng màu chuẩn theo Luật Bảo vệ môi trường 2020 (Điều 75) & WCAG 2.1 AA
+/// Đạt tỷ lệ tương phản tối thiểu >= 4.5:1 trên nền trắng/sáng theo review HCI
 class AppColors {
   AppColors._();
 
-  // 1. Rác tái chế (Recyclables) - Cam
-  static const Color recyclable = Color(0xFFFF9800);
-  static const Color recyclableLight = Color(0xFFFFE0B2);
-  static const Color recyclableDark = Color(0xFFF57C00);
+  // 1. Rác tái chế (Recyclables) - Cam (#C2410C, contrast 5.18:1)
+  static const Color recyclable = Color(0xFFC2410C);
+  static const Color recyclableLight = Color(0xFFFFEDD5);
+  static const Color recyclableDark = Color(0xFF9A3412);
 
-  // 2. Rác thực phẩm (Food Waste) - Xanh lá
-  static const Color foodWaste = Color(0xFF4CAF50);
-  static const Color foodWasteLight = Color(0xFFC8E6C9);
-  static const Color foodWasteDark = Color(0xFF388E3C);
+  // 2. Rác thực phẩm (Food Waste) - Xanh lá (#2E7D32, contrast 5.13:1)
+  static const Color foodWaste = Color(0xFF2E7D32);
+  static const Color foodWasteLight = Color(0xFFDCFCE7);
+  static const Color foodWasteDark = Color(0xFF1B5E20);
 
-  // 3. Rác sinh hoạt khác (Residual Waste) - Xám
-  static const Color residualWaste = Color(0xFF757575);
-  static const Color residualWasteLight = Color(0xFFE0E0E0);
-  static const Color residualWasteDark = Color(0xFF424242);
+  // 3. Rác sinh hoạt khác (Residual Waste) - Xám than (#4B5563, contrast 7.56:1)
+  static const Color residualWaste = Color(0xFF4B5563);
+  static const Color residualWasteLight = Color(0xFFF3F4F6);
+  static const Color residualWasteDark = Color(0xFF1F2937);
+
+  // 4. Chất thải nguy hại (Hazardous Waste) - Đỏ cảnh báo (#B42318, contrast 6.57:1)
+  static const Color hazardous = Color(0xFFB42318);
+  static const Color hazardousLight = Color(0xFFFEE2E2);
+  static const Color hazardousDark = Color(0xFF7F1D1D);
 
   // Background & Surface
   static const Color background = Color(0xFFF8F9FA);

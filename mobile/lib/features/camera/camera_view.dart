@@ -2,13 +2,28 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
+import '../classifier/waste_classifier.dart';
+import '../feedback/feedback_repository.dart';
+import '../history/eco_streak_repository.dart';
 import '../knowledge_base/waste_rule_model.dart';
+import '../knowledge_base/waste_rule_repository.dart';
 import '../result/clarification_dialog.dart';
 import '../result/result_card.dart';
 
 /// Màn hình Camera Preview & Quét nhận diện rác thời gian thực theo chuẩn Wireframe
 class CameraView extends StatefulWidget {
-  const CameraView({super.key});
+  final WasteClassifier? classifier;
+  final WasteRuleRepository? ruleRepository;
+  final EcoStreakRepository? streakRepository;
+  final FeedbackRepository? feedbackRepository;
+
+  const CameraView({
+    super.key,
+    this.classifier,
+    this.ruleRepository,
+    this.streakRepository,
+    this.feedbackRepository,
+  });
 
   @override
   State<CameraView> createState() => _CameraViewState();
@@ -21,17 +36,56 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
   String? _statusMessage;
   ResultCard? _currentResult;
 
+  late final WasteClassifier _classifier;
+  WasteRuleRepository? _ruleRepository;
+  EcoStreakRepository? _streakRepository;
+  FeedbackRepository? _feedbackRepository;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _classifier = widget.classifier ?? MockWasteClassifier(defaultLabel: 'hop_sua_giay');
+    _ruleRepository = widget.ruleRepository;
+    _streakRepository = widget.streakRepository;
+    _feedbackRepository = widget.feedbackRepository;
+    _initializeServices();
     _initializeCamera();
+  }
+
+  Future<void> _initializeServices() async {
+    await _classifier.initialize();
+
+    if (_ruleRepository == null) {
+      try {
+        _ruleRepository = await WasteRuleRepository.loadFromAsset();
+      } catch (e) {
+        debugPrint('[CameraView] Error loading rules.json asset: $e');
+      }
+    }
+
+    if (_streakRepository == null) {
+      try {
+        _streakRepository = await EcoStreakRepository.create();
+      } catch (e) {
+        debugPrint('[CameraView] Error initializing EcoStreakRepository: $e');
+      }
+    }
+
+    if (_feedbackRepository == null) {
+      try {
+        _feedbackRepository = await FeedbackRepository.create();
+      } catch (e) {
+        debugPrint('[CameraView] Error initializing FeedbackRepository: $e');
+      }
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
+    _classifier.dispose();
     super.dispose();
   }
 
@@ -142,10 +196,12 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
   }
 
   Future<void> _onCapture() async {
-    // Nếu có camera thật, thực hiện chụp ảnh
+    // 1. Chụp ảnh nếu camera thật đã khởi tạo
+    dynamic imageInput;
     if (_controller != null && _isCameraInitialized) {
       try {
-        await _controller!.takePicture();
+        final file = await _controller!.takePicture();
+        imageInput = file.path;
       } catch (e) {
         debugPrint('[CameraView] takePicture error: $e');
       }
@@ -153,8 +209,116 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
 
     if (!mounted) return;
 
-    // Kích hoạt luồng Clarification Dialog & ResultCard (Nhiệm vụ 2)
-    // barrierDismissible = false: Bắt buộc người dùng trả lời câu hỏi trạng thái sạch/bẩn
+    // 2. Chạy suy luận on-device qua WasteClassifier
+    final result = await _classifier.classifyImage(imageInput ?? 'mock_capture.jpg');
+
+    if (!mounted) return;
+
+    // 3. Kiểm tra độ tự tin nhận diện (ngưỡng 0.60 per PRD & review HCI)
+    if (!result.isConfident) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hình ảnh chưa đủ rõ nét. Vui lòng chụp lại gần hơn hoặc bật đèn Flash.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // 4. Tra cứu quy tắc từ rules.json qua WasteRuleRepository
+    final ruleRepo = _ruleRepository;
+    WasteRuleItem? rule;
+    if (ruleRepo != null) {
+      if (result.classIndex != null) {
+        rule = ruleRepo.lookupByIndex(result.classIndex!);
+      }
+      rule ??= ruleRepo.lookupById(result.label);
+    }
+
+    if (!mounted) return;
+
+    // 5. Nếu chưa có repository (fallback an toàn khi chạy headless test)
+    if (rule == null || ruleRepo == null) {
+      _showFallbackDialog();
+      return;
+    }
+
+    final itemName = rule.commonNamesVi.isNotEmpty
+        ? rule.commonNamesVi.first
+        : AppStrings.sampleItemTetraPak;
+
+    // 6. Phân nhánh logic: nếu vật phẩm phụ thuộc trạng thái (State-Aware)
+    if (rule.requiresClarification) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ClarificationDialog(
+          itemName: itemName,
+          promptMessage: rule!.clarificationQuestionVi,
+          onStateSelected: (state) {
+            final decision = ruleRepo.resolvePhysicalState(rule!, state);
+            _displayResult(
+              itemName: itemName,
+              stream: decision.stream,
+              instructions: decision.instructionsVi,
+              classIndex: rule.classIndex,
+              itemId: rule.itemId,
+              confidence: result.confidence,
+            );
+          },
+        ),
+      );
+    } else {
+      // Vật phẩm không phụ thuộc trạng thái (VD: lon nhôm, pin, chai thủy tinh...)
+      final decision = ruleRepo.resolveState(rule, isClean: true, hasFood: false);
+      _displayResult(
+        itemName: itemName,
+        stream: decision.stream,
+        instructions: decision.instructionsVi,
+        classIndex: rule.classIndex,
+        itemId: rule.itemId,
+        confidence: result.confidence,
+      );
+    }
+  }
+
+  void _displayResult({
+    required String itemName,
+    required WasteStream stream,
+    required String instructions,
+    required int classIndex,
+    required String itemId,
+    required double confidence,
+  }) {
+    if (!mounted) return;
+
+    // Ghi nhận thành tích Eco-Streak ngoại tuyến (US-05)
+    _streakRepository?.recordConfirmedSort(
+      itemName: itemName,
+      stream: stream,
+      classIndex: classIndex,
+      itemId: itemId,
+      confidence: confidence,
+    );
+
+    setState(() {
+      _currentResult = ResultCard(
+        itemName: itemName,
+        stream: stream,
+        instructions: instructions,
+        onClose: () {
+          if (mounted) setState(() => _currentResult = null);
+        },
+        onReportWrong: () => _handleReportWrong(
+          classIndex: classIndex,
+          itemId: itemId,
+          confidence: confidence,
+        ),
+      );
+    });
+  }
+
+  void _showFallbackDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -169,6 +333,11 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
                 stream: WasteStream.recyclable,
                 instructions: AppStrings.sampleInstructionsClean,
                 onClose: () => setState(() => _currentResult = null),
+                onReportWrong: () => _handleReportWrong(
+                  classIndex: 2,
+                  itemId: 'hop_sua_giay',
+                  confidence: 0.90,
+                ),
               );
             } else {
               _currentResult = ResultCard(
@@ -176,10 +345,69 @@ class _CameraViewState extends State<CameraView> with WidgetsBindingObserver {
                 stream: WasteStream.residualWaste,
                 instructions: AppStrings.sampleInstructionsDirty,
                 onClose: () => setState(() => _currentResult = null),
+                onReportWrong: () => _handleReportWrong(
+                  classIndex: 2,
+                  itemId: 'hop_sua_giay',
+                  confidence: 0.90,
+                ),
               );
             }
           });
         },
+      ),
+    );
+  }
+
+  Future<void> _handleReportWrong({
+    required int classIndex,
+    required String itemId,
+    required double confidence,
+  }) async {
+    final feedbackRepo = _feedbackRepository;
+    if (feedbackRepo != null) {
+      if (!feedbackRepo.hasPrivacyOptIn) {
+        final granted = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Đồng ý gửi phản hồi ẩn danh?'),
+            content: const Text(
+              'Phản hồi chỉ lưu nhãn phân loại ẩn danh (không lưu khuôn mặt hay dữ liệu cá nhân) '
+              'để cải thiện độ chính xác của EcoSort.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Đồng ý'),
+              ),
+            ],
+          ),
+        );
+        if (granted != true) return;
+        await feedbackRepo.setPrivacyOptIn(true);
+      }
+      try {
+        await feedbackRepo.submitReport(
+          predictedClassIndex: classIndex,
+          predictedItemId: itemId,
+          correctedClassIndex: classIndex,
+          correctedItemId: 'user_reported_incorrect',
+          confidence: confidence,
+          note: 'Người dùng bấm nút Kết quả này sai trên ResultCard',
+        );
+      } catch (e) {
+        debugPrint('[CameraView] Error submitting feedback: $e');
+      }
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Cảm ơn bạn! Phản hồi phân loại sai đã được ghi nhận ngoại tuyến.'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
