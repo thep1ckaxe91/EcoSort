@@ -15,9 +15,11 @@ uv pip install --python .venv/bin/python -r <(python3 -c 'import tomllib; print(
 ```
 
 ## End-to-End Reproduction Commands
-1. **Bootstrap Balanced 20-Class Dataset** (open HuggingFace `fritz1024/garbage-classify-with-chinese` + optional `ml/datasets/local_vn/<item_id>/` photos):
+1. **Bootstrap Balanced 20-Class Dataset** (open HuggingFace `fritz1024/garbage-classify-with-chinese` + Option-B `ml/datasets/local_vn/<item_id>/<member>_objXX/*.jpg` photos):
    ```bash
    ml/.venv/bin/python ml/src/data/bootstrap_dataset.py
+   # Or replace HuggingFace classes once >= 8 local physical objects exist per VN class:
+   ml/.venv/bin/python ml/src/data/bootstrap_dataset.py --vn-replace-classes --min-vn-objects 8
    ```
 2. **Run Object-Level GroupShuffleSplit (70/15/15, zero frame leakage)**:
    ```bash
@@ -28,8 +30,9 @@ uv pip install --python .venv/bin/python -r <(python3 -c 'import tomllib; print(
    ```bash
    ml/.venv/bin/python ml/src/training/train_and_export.py
    ```
-4. **Verify TFLite Size (`< 5 MB`), Tensor Contract, Parity, & Latency**:
+4. **Verify Loader (`Option B`) & TFLite Size (`< 5 MB`), Tensor Contract, Parity, & Latency**:
    ```bash
+   ml/.venv/bin/python ml/tests/test_local_vn_loader.py
    ml/.venv/bin/python ml/tests/verify_tflite_model.py
    ```
 
@@ -47,5 +50,6 @@ ml/
 │   └── training/
 │       └── train_and_export.py          # 2-stage MobileNetV3Small fine-tune + FP16 TFLite + Grad-CAM
 └── tests/
+    ├── test_local_vn_loader.py          # Option-B leaf-folder QA, object_id isolation & split tests
     └── verify_tflite_model.py           # Automated size, tensor, accuracy parity & latency test
 ```
