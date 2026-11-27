@@ -1,0 +1,17 @@
+{
+  "total_images": 3941,
+  "train_images": 2758,
+  "val_images": 591,
+  "test_images": 592,
+  "train_ratio": 0.6998,
+  "val_ratio": 0.15,
+  "test_ratio": 0.1502,
+  "unique_objects_train": 2758,
+  "unique_objects_val": 591,
+  "unique_objects_test": 592,
+  "overlap_train_val": 0,
+  "overlap_train_test": 0,
+  "overlap_val_test": 0,
+  "classes_covered": 20,
+  "zero_leakage_verified": true
+}

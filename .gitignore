@@ -50,6 +50,7 @@ ml/datasets/*
 ml/**/*.jpg
 ml/**/*.jpeg
 ml/**/*.png
+!ml/reports/**/*.png
 ml/**/*.zip
 ml/**/*.tar.gz
 ml/**/*.tar
