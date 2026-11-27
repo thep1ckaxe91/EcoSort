@@ -67,11 +67,8 @@ Every feature, fix, or documentation update must originate on an isolated branch
 
 ### 2. Pull Request & Code Review Rules
 - **No Direct Push**: Direct pushes to `main` are rejected by GitHub Branch Protection.
-- **Mandatory Review**: Every PR requires at least **1 approving peer review** (`REQUIRED_APPROVING_REVIEWS: 1`) before merge.
 - **Dismiss Stale Approvals**: Approvals are automatically invalidated when new commits are pushed.
-- **Branch Protection Enforced for Admins**: Enforce admins is active; no bypass is permitted.
 - **Clean Commits & Hygiene**:
-  - `GEMINI.md` and `*_pr_report.md` files are strictly git-ignored and must **never** be staged.
   - Raw ML photos (`.jpg`, `.png`, `.zip`) must never be committed to Git.
   - Teammate code comments and docstrings must be preserved.
 
