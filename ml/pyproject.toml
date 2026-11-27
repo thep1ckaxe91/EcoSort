@@ -1,0 +1,12 @@
+[project]
+name = "ecosort-ml"
+version = "0.1.0"
+description = "EcoSort MobileNetV3-Small training, Group-Split anti-leakage, Grad-CAM, and TFLite export pipeline"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "tensorflow[and-cuda]>=2.16.0,<2.20.0",
+    "scikit-learn>=1.4.0",
+    "pillow>=10.0.0",
+    "matplotlib>=3.8.0",
+    "numpy>=1.26.0,<2.2.0",
+]

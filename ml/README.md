@@ -1,51 +1,51 @@
 # EcoSort Machine Learning Pipeline (`ml/`)
 
 ## Module Overview
-- **Owner**: Bùi Khánh An (AI/ML Engineer, Student ID: `23021459`)
-- **Core Technology**: PyTorch / TensorFlow, MobileNetV3-Small / EfficientNet-Lite, TFLite (Post-Training Quantization - INT8/FP16), OpenCV
-- **Target Metrics**: Top-1 Accuracy $\ge 90\%$, Macro F1 $\ge 0.88$, On-device inference latency $\le 80\text{ms}$ on ARM64 mobile CPUs.
+- **Owner**: Bùi Khánh An (`23021459`) — *Solo-rescued in Sprint 2 by Đào Phương Nam (`23021639`)*
+- **Model Architecture**: `MobileNetV3Small` (ImageNet pretrained, `include_preprocessing=True` inside graph)
+- **Quantization & Format**: FP16 Post-Training Quantization (`.tflite`, `< 5.0 MB`)
+- **Label Contract**: Strictly consumes [`knowledge_base/labels.txt`](../knowledge_base/labels.txt) (`class_index: 0..19`)
 
-## Critical Mandate: Group-Split Anti-Data-Leakage Policy
-> [!CAUTION]
-> **Zero Frame-Level Shuffling**: Random splitting (`train_test_split`) across sequential video frames or camera burst shots of the same item is strictly forbidden.
-> It introduces catastrophic train-to-test contamination, yielding inflated 99%+ accuracy during validation that catastrophically collapses in real-world deployment.
+## Isolated Environment Setup (`uv` Python 3.11)
+Never install ML packages globally. Everything stays inside `ml/.venv`:
+```bash
+cd ml
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r <(python3 -c 'import tomllib; print("\n".join(tomllib.load(open("pyproject.toml","rb"))["project"]["dependencies"]))')
+```
 
-### Group-Split Protocol
-1. **Grouping Keys**: Every sample must record an `object_id` (the physical item instance) and `session_id` (environmental lighting/background session).
-2. **Partitioning**: Splits MUST use `GroupShuffleSplit` or `GroupKFold`:
-   ```python
-   from sklearn.model_selection import GroupShuffleSplit
-
-   splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-   train_idx, test_idx = next(splitter.split(X, y, groups=df['object_id']))
+## End-to-End Reproduction Commands
+1. **Bootstrap Balanced 20-Class Dataset** (open HuggingFace `fritz1024/garbage-classify-with-chinese` + optional `ml/datasets/local_vn/<item_id>/` photos):
+   ```bash
+   ml/.venv/bin/python ml/src/data/bootstrap_dataset.py
    ```
-3. **Leakage Verification**: Automated check in PR pipeline confirms:
-   $$\text{unique\_objects}(\text{Train}) \cap \text{unique\_objects}(\text{Val}) = \emptyset$$
+2. **Run Object-Level GroupShuffleSplit (70/15/15, zero frame leakage)**:
+   ```bash
+   ml/.venv/bin/python ml/src/data/group_split.py
+   ml/.venv/bin/python ml/src/data/group_split.py --verify-only
+   ```
+3. **Train MobileNetV3-Small, Export FP16 `.tflite`, & Generate Confusion Matrices + Grad-CAM**:
+   ```bash
+   ml/.venv/bin/python ml/src/training/train_and_export.py
+   ```
+4. **Verify TFLite Size (`< 5 MB`), Tensor Contract, Parity, & Latency**:
+   ```bash
+   ml/.venv/bin/python ml/tests/verify_tflite_model.py
+   ```
 
 ## Directory Layout
 ```
 ml/
-├── configs/             # Training and quantization hyperparameter configs (YAML)
-├── datasets/            # Local data directory (git-ignored, tracked via external storage)
-│   └── .gitkeep
-├── notebooks/           # Exploratory data analysis (EDA) & Grad-CAM visualization
+├── pyproject.toml                       # Isolated Python 3.11 + TF/CUDA dependency spec
+├── datasets/                            # Git-ignored raw images, manifest.csv, splits/*.csv
+├── weights/                             # Git-ignored ecosort_v1.tflite copy
+├── reports/                             # Committed metrics.json, split_verification.json, CM & Grad-CAM PNGs
 ├── src/
-│   ├── data/            # Dataset loaders, augmentations, and Group-Split validators
-│   ├── models/          # Model architectures (MobileNetV3, EfficientNet)
-│   ├── training/        # PyTorch training loops, loss functions, metrics
-│   └── export/          # Quantization pipelines (PTQ INT8) and TFLite export
-├── weights/             # Quantized models (tracked as release artifacts, not committed raw)
-├── requirements.txt     # Python dependencies (locked versions)
-└── README.md
+│   ├── data/
+│   │   ├── bootstrap_dataset.py         # 20-class dataset builder + PIL image integrity check
+│   │   └── group_split.py               # Stratified GroupShuffleSplit by object_id
+│   └── training/
+│       └── train_and_export.py          # 2-stage MobileNetV3Small fine-tune + FP16 TFLite + Grad-CAM
+└── tests/
+    └── verify_tflite_model.py           # Automated size, tensor, accuracy parity & latency test
 ```
-
-## Dataset Git Hygiene
-- Raw images (`.jpg`, `.jpeg`, `.png`) and archives (`.zip`, `.tar.gz`) are blocked by `.gitignore`.
-- Raw datasets are synchronized via cloud buckets / DVC. Never run `git add` on binary media.
-- Weights larger than 10MB must be published to GitHub Releases and pulled during build time.
-
-## Verification Checklist
-Every PR touching `ml/` must provide:
-1. Cross-entropy loss and Macro F1 curve logs.
-2. Group-Split non-overlap proof.
-3. Quantized `.tflite` model size ($\le 15\text{MB}$) and benchmark latency report on target edge hardware.

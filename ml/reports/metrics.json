@@ -1,0 +1,22 @@
+{
+  "model_architecture": "MobileNetV3Small (ImageNet pretrained, include_preprocessing=True)",
+  "quantization": "FP16 post-training quantization",
+  "tflite_size_bytes": 1929752,
+  "tflite_size_mb": 1.84,
+  "train_samples": 2758,
+  "val_samples": 591,
+  "test_samples": 592,
+  "epochs_finetuned": 11,
+  "test_20_class_accuracy": 0.6892,
+  "test_20_class_macro_f1": 0.6969,
+  "test_3_stream_accuracy": 0.8497,
+  "test_3_stream_macro_f1": 0.8248,
+  "gradcam_samples": [
+    "ml/reports/gradcam_samples/gradcam_0_chai_nhua_pet.png",
+    "ml/reports/gradcam_samples/gradcam_1_lon_nhom.png",
+    "ml/reports/gradcam_samples/gradcam_2_hop_sua_giay.png",
+    "ml/reports/gradcam_samples/gradcam_3_coc_nhua_tra_sua.png",
+    "ml/reports/gradcam_samples/gradcam_4_giay_bao_sach_vo.png",
+    "ml/reports/gradcam_samples/gradcam_5_thung_bia_carton.png"
+  ]
+}
