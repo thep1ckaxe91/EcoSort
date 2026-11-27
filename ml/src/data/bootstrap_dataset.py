@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import io
 import random
@@ -141,96 +142,202 @@ def download_and_validate_image(task: DownloadTask) -> SampleRecord | None:
     return None
 
 
-def collect_local_vn_samples(labels: list[str]) -> list[SampleRecord]:
-    """Scan optional ml/datasets/local_vn/<item_id>/ photos and parse objXX/sessYY metadata."""
-    if not LOCAL_VN_DIR.is_dir():
+ALLOWED_IMAGE_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png"})
+_MEMBER_OBJ_RE = re.compile(r"^([a-zA-Z0-9-]+)_obj\d+", re.IGNORECASE)
+_FLAT_OBJ_RE = re.compile(r"__(obj\d+)", re.IGNORECASE)
+_FLAT_SESS_RE = re.compile(r"__(sess\d+)", re.IGNORECASE)
+
+
+def _extract_member_session(folder_name: str) -> str:
+    """Extract normalized member session identifier from an Option-B leaf folder name."""
+    match = _MEMBER_OBJ_RE.match(folder_name)
+    if match:
+        return f"vn_{match.group(1).lower()}"
+    return "vn_local"
+
+
+def _validate_image(img_path: Path) -> bool:
+    """Return True if an image file can be opened and converted to RGB cleanly."""
+    try:
+        with Image.open(img_path) as img:
+            img.convert("RGB")
+        return True
+    except Exception:
+        return False
+
+
+def _format_record_path(img_path: Path, repo_root: Path) -> str:
+    """Store paths relative to repo_root when possible, else preserve string path."""
+    try:
+        return str(img_path.relative_to(repo_root))
+    except ValueError:
+        return str(img_path)
+
+
+def collect_local_vn_samples(
+    labels: list[str],
+    local_vn_dir: Path = LOCAL_VN_DIR,
+    repo_root: Path = REPO_ROOT,
+) -> list[SampleRecord]:
+    """Scan local_vn/<item_id>/ supporting Option-B object subfolders and Option-A flat files."""
+    if not local_vn_dir.is_dir():
         return []
     label_to_idx = {name: idx for idx, name in enumerate(labels)}
     records: list[SampleRecord] = []
-    obj_pattern = re.compile(r"__(obj\d+)", re.IGNORECASE)
-    sess_pattern = re.compile(r"__(sess\d+)", re.IGNORECASE)
+    skipped_heic = 0
+    skipped_corrupt = 0
 
-    for class_dir in sorted(LOCAL_VN_DIR.iterdir()):
+    for class_dir in sorted(local_vn_dir.iterdir()):
         if not class_dir.is_dir() or class_dir.name not in label_to_idx:
             continue
         item_id = class_dir.name
         class_idx = label_to_idx[item_id]
-        for img_path in sorted(class_dir.iterdir()):
-            if img_path.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+
+        for entry in sorted(class_dir.iterdir()):
+            if entry.name.startswith("."):
                 continue
-            try:
-                with Image.open(img_path) as img:
-                    img.convert("RGB")
-            except Exception:
-                continue
-            obj_match = obj_pattern.search(img_path.stem)
-            sess_match = sess_pattern.search(img_path.stem)
-            object_id = f"vn_{item_id}_{obj_match.group(1) if obj_match else img_path.stem}"
-            session_id = sess_match.group(1) if sess_match else "vn_local"
-            records.append(
-                SampleRecord(
-                    filepath=str(img_path.relative_to(REPO_ROOT)),
-                    class_index=class_idx,
-                    item_id=item_id,
-                    object_id=object_id,
-                    session_id=session_id,
-                    source="local_vn",
+            if entry.is_dir():
+                # Option B leaf folder: <item_id>/<member>_objXX/*.jpg
+                object_id = f"vn_{item_id}_{entry.name}"
+                session_id = _extract_member_session(entry.name)
+                for img_path in sorted(entry.rglob("*")):
+                    if not img_path.is_file() or img_path.name.startswith("."):
+                        continue
+                    ext = img_path.suffix.lower()
+                    if ext == ".heic":
+                        skipped_heic += 1
+                        continue
+                    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                        continue
+                    if not _validate_image(img_path):
+                        skipped_corrupt += 1
+                        continue
+                    records.append(
+                        SampleRecord(
+                            filepath=_format_record_path(img_path, repo_root),
+                            class_index=class_idx,
+                            item_id=item_id,
+                            object_id=object_id,
+                            session_id=session_id,
+                            source="local_vn",
+                        )
+                    )
+            elif entry.is_file():
+                # Option A backwards-compatible flat files: <item_id>/<member>__objXX__sessYY.jpg
+                ext = entry.suffix.lower()
+                if ext == ".heic":
+                    skipped_heic += 1
+                    continue
+                if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                    continue
+                if not _validate_image(entry):
+                    skipped_corrupt += 1
+                    continue
+                obj_match = _FLAT_OBJ_RE.search(entry.stem)
+                sess_match = _FLAT_SESS_RE.search(entry.stem)
+                object_id = f"vn_{item_id}_{obj_match.group(1) if obj_match else entry.stem}"
+                session_id = sess_match.group(1) if sess_match else "vn_local"
+                records.append(
+                    SampleRecord(
+                        filepath=_format_record_path(entry, repo_root),
+                        class_index=class_idx,
+                        item_id=item_id,
+                        object_id=object_id,
+                        session_id=session_id,
+                        source="local_vn",
+                    )
                 )
-            )
+
+    if skipped_heic or skipped_corrupt:
+        print(
+            f"[WARN] local_vn scan skipped {skipped_heic} .heic file(s) "
+            f"and {skipped_corrupt} corrupt image(s)."
+        )
     return records
 
 
-def build_dataset(max_per_class: int = MAX_PER_CLASS, workers: int = 16) -> int:
-    """Download balanced 20-class dataset, validate images, and write manifest.csv."""
+def select_replaced_classes(local_records: list[SampleRecord], min_vn_objects: int) -> set[str]:
+    """Return item_ids whose distinct local VN object_id count meets min_vn_objects."""
+    objects_by_class: dict[str, set[str]] = {}
+    for rec in local_records:
+        objects_by_class.setdefault(rec.item_id, set()).add(rec.object_id)
+    return {
+        item_id
+        for item_id, obj_ids in objects_by_class.items()
+        if len(obj_ids) >= min_vn_objects
+    }
+
+
+def build_dataset(
+    max_per_class: int = MAX_PER_CLASS,
+    workers: int = 16,
+    local_vn_dir: Path = LOCAL_VN_DIR,
+    vn_replace_classes: bool = False,
+    min_vn_objects: int = 8,
+) -> int:
+    """Download balanced 20-class dataset + local_vn overrides, validate, and write manifest.csv."""
     labels = load_canonical_labels()
     missing_maps = [name for name in labels if name not in ITEM_TO_HF_FOLDERS]
     if missing_maps:
         raise KeyError(f"Missing HF mapping for labels: {missing_maps}")
 
-    print("[INFO] Fetching fritz1024/garbage-classify-with-chinese index...")
-    by_folder = fetch_hf_folder_index()
-    rng = random.Random(RANDOM_SEED)
+    local_records = collect_local_vn_samples(labels, local_vn_dir=local_vn_dir)
+    replaced_classes: set[str] = (
+        select_replaced_classes(local_records, min_vn_objects)
+        if vn_replace_classes
+        else set()
+    )
+    if replaced_classes:
+        print(
+            f"[INFO] --vn-replace-classes active (min_vn_objects={min_vn_objects}): "
+            f"replacing HF data for {len(replaced_classes)} class(es): {sorted(replaced_classes)}"
+        )
 
-    tasks: list[DownloadTask] = []
-    for class_idx, item_id in enumerate(labels):
-        candidates: list[tuple[str, str]] = []
-        for folder_id in ITEM_TO_HF_FOLDERS[item_id]:
-            paths = by_folder.get(folder_id, [])
-            for rel_path in paths:
-                candidates.append((folder_id, rel_path))
-        rng.shuffle(candidates)
-        # Fetch up to max_per_class (+10% buffer if any image is unreadable, capped at max_per_class after validation)
-        selected = candidates[: max_per_class + 15]
-        class_dir = RAW_DIR / f"{class_idx:02d}_{item_id}"
-        for folder_id, rel_path in selected:
-            stem = Path(rel_path).stem
-            dest = class_dir / f"hf_{folder_id}_{stem}.jpg"
-            tasks.append(
-                DownloadTask(
-                    class_index=class_idx,
-                    item_id=item_id,
-                    hf_rel_path=rel_path,
-                    folder_id=folder_id,
-                    dest_path=dest,
-                )
-            )
-
-    print(f"[INFO] Downloading/verifying {len(tasks)} candidate images across 20 classes...")
     per_class_records: dict[int, list[SampleRecord]] = {i: [] for i in range(20)}
+    tasks: list[DownloadTask] = []
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(download_and_validate_image, t) for t in tasks]
-        completed = 0
-        for fut in as_completed(futures):
-            completed += 1
-            rec = fut.result()
-            if rec is not None and len(per_class_records[rec.class_index]) < max_per_class:
-                per_class_records[rec.class_index].append(rec)
-            if completed % 500 == 0 or completed == len(tasks):
-                total_ok = sum(len(v) for v in per_class_records.values())
-                print(f"[INFO] Progress: {completed}/{len(tasks)} checked, {total_ok} valid kept.")
+    if len(replaced_classes) < len(labels):
+        print("[INFO] Fetching fritz1024/garbage-classify-with-chinese index...")
+        by_folder = fetch_hf_folder_index()
+        rng = random.Random(RANDOM_SEED)
 
-    local_records = collect_local_vn_samples(labels)
+        for class_idx, item_id in enumerate(labels):
+            if item_id in replaced_classes:
+                continue
+            candidates: list[tuple[str, str]] = []
+            for folder_id in ITEM_TO_HF_FOLDERS[item_id]:
+                for rel_path in by_folder.get(folder_id, []):
+                    candidates.append((folder_id, rel_path))
+            rng.shuffle(candidates)
+            selected = candidates[: max_per_class + 15]
+            class_dir = RAW_DIR / f"{class_idx:02d}_{item_id}"
+            for folder_id, rel_path in selected:
+                stem = Path(rel_path).stem
+                dest = class_dir / f"hf_{folder_id}_{stem}.jpg"
+                tasks.append(
+                    DownloadTask(
+                        class_index=class_idx,
+                        item_id=item_id,
+                        hf_rel_path=rel_path,
+                        folder_id=folder_id,
+                        dest_path=dest,
+                    )
+                )
+
+    if tasks:
+        print(f"[INFO] Downloading/verifying {len(tasks)} candidate HF images...")
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(download_and_validate_image, t) for t in tasks]
+            completed = 0
+            for fut in as_completed(futures):
+                completed += 1
+                rec = fut.result()
+                if rec is not None and len(per_class_records[rec.class_index]) < max_per_class:
+                    per_class_records[rec.class_index].append(rec)
+                if completed % 500 == 0 or completed == len(tasks):
+                    total_ok = sum(len(v) for v in per_class_records.values())
+                    print(f"[INFO] Progress: {completed}/{len(tasks)} checked, {total_ok} valid kept.")
+
     all_records: list[SampleRecord] = []
     for idx in range(20):
         all_records.extend(sorted(per_class_records[idx], key=lambda r: r.filepath))
@@ -245,12 +352,43 @@ def build_dataset(max_per_class: int = MAX_PER_CLASS, workers: int = 16) -> int:
 
     print(f"[PASS] Wrote {len(all_records)} verified image records to {MANIFEST_PATH}.")
     for idx, item_id in enumerate(labels):
-        n_cls = len(per_class_records[idx]) + sum(1 for r in local_records if r.class_index == idx)
-        print(f"  class {idx:02d} ({item_id}): {n_cls} images")
-        if n_cls < 50:
+        cls_local = [r for r in local_records if r.class_index == idx]
+        n_cls = len(per_class_records[idx]) + len(cls_local)
+        n_local_objs = len({r.object_id for r in cls_local})
+        tag = "VN-REPLACED" if item_id in replaced_classes else "HF+VN"
+        print(f"  class {idx:02d} ({item_id}) [{tag}]: {n_cls} images ({len(cls_local)} local, {n_local_objs} obj)")
+        if item_id in replaced_classes:
+            if n_local_objs < 3 or n_cls < 15:
+                raise RuntimeError(
+                    f"Insufficient local VN coverage for replaced class {idx} ({item_id}): "
+                    f"{n_cls} images across {n_local_objs} objects (need >= 15 images, >= 3 objects)"
+                )
+        elif n_cls < 50:
             raise RuntimeError(f"Insufficient images ({n_cls}) for class {idx} ({item_id})")
     return 0
 
 
+def main() -> int:
+    parser = argparse.ArgumentParser(description="EcoSort 20-class dataset bootstrapper")
+    parser.add_argument("--max-per-class", type=int, default=MAX_PER_CLASS)
+    parser.add_argument("--workers", type=int, default=16)
+    parser.add_argument("--local-vn-dir", type=Path, default=LOCAL_VN_DIR)
+    parser.add_argument(
+        "--vn-replace-classes",
+        action="store_true",
+        help="Replace HuggingFace images with local_vn photos for classes meeting --min-vn-objects.",
+    )
+    parser.add_argument("--min-vn-objects", type=int, default=8)
+    args = parser.parse_args()
+
+    return build_dataset(
+        max_per_class=args.max_per_class,
+        workers=args.workers,
+        local_vn_dir=args.local_vn_dir,
+        vn_replace_classes=args.vn_replace_classes,
+        min_vn_objects=args.min_vn_objects,
+    )
+
+
 if __name__ == "__main__":
-    raise SystemExit(build_dataset())
+    raise SystemExit(main())
