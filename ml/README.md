@@ -36,6 +36,34 @@ uv pip install --python .venv/bin/python -r <(python3 -c 'import tomllib; print(
    ml/.venv/bin/python ml/tests/verify_tflite_model.py
    ```
 
+## v2: VN hybrid fine-tune (issue #15)
+v1 commands above are unchanged. Every v2 step writes to separate paths
+(`ml/datasets/manifest_v2.csv`, `ml/datasets/splits_v2/`, `ml/reports/v2/`,
+`mobile/assets/models/ecosort_v2.tflite`) so v1 artifacts are never overwritten.
+Raw photos go to `ml/datasets/local_vn/<item_id>/<member>_objXX/*.jpg` (git-ignored; Drive keeps the originals).
+```bash
+# 0. Read-only QA of the VN photos -> ml/reports/v2/qa/{qa_summary.json, qa_review_list.csv}
+#    Move rejected images (blurry / wrong class / duplicates) out of local_vn by hand, re-run until clean.
+ml/.venv/bin/python ml/src/data/qa_local_vn.py --strict
+# 1. Hybrid manifest (classes with >= 8 VN objects replace HuggingFace data)
+ml/.venv/bin/python ml/src/data/bootstrap_dataset.py --vn-replace-classes --min-vn-objects 8 --manifest ml/datasets/manifest_v2.csv
+# 2. Object-level 70/15/15 split + per-class/source breakdown -> ml/reports/v2/split_verification.json
+ml/.venv/bin/python ml/src/data/group_split.py --model-version v2
+# 3. Freeze the real-VN test list (source == local_vn rows of test) -> ml/reports/v2/test_vn_manifest.json
+ml/.venv/bin/python ml/src/evaluation/freeze_vn_test.py
+# 4. Train + export v2 (refuses to start unless step 3 is intact); also writes
+#    ml/reports/v2/keras_test_predictions.csv with the same PIL loader the verifier uses
+ml/.venv/bin/python ml/src/training/train_and_export.py --model-version v2
+# 5. Strict acceptance: fails on missing/empty data, missing Keras reference, v1 artifact, or drift > 0.02
+ml/.venv/bin/python ml/tests/verify_tflite_model.py --model-version v2
+# 6. v1 vs v2 TFLite on the identical frozen VN list -> ml/reports/v2/vn_comparison/
+ml/.venv/bin/python ml/src/evaluation/compare_tflite_vn.py
+# Tests (no TensorFlow needed)
+ml/.venv/bin/python ml/tests/test_v2_pipeline.py
+```
+Write `ml/reports/error_analysis_v2.md` from `ml/docs/error_analysis_v2_template.md`, pasting
+`ml/reports/v2/vn_comparison/tables.md`.
+
 ## Directory Layout
 ```
 ml/

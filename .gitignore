@@ -56,6 +56,7 @@ ml/**/*.tar.gz
 ml/**/*.tar
 ml/weights/*.onnx
 ml/weights/*.tflite
+ml/weights/*.keras
 
 # ------------------------------------------------------------------------------
 # IDE & Operating System Artifacts

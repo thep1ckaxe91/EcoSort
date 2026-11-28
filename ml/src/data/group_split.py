@@ -16,6 +16,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "ml" / "datasets" / "manifest.csv"
 SPLITS_DIR = REPO_ROOT / "ml" / "datasets" / "splits"
 REPORT_PATH = REPO_ROOT / "ml" / "reports" / "split_verification.json"
+# v2 layout (ml/datasets/manifest_v2.csv, ml/datasets/splits_v2/, ml/reports/v2/) mirrors
+# ml/src/ecosort_ml/artifacts.py; kept literal here so this script stays dependency-free.
+V2_MANIFEST_PATH = REPO_ROOT / "ml" / "datasets" / "manifest_v2.csv"
+V2_SPLITS_DIR = REPO_ROOT / "ml" / "datasets" / "splits_v2"
+V2_REPORT_PATH = REPO_ROOT / "ml" / "reports" / "v2" / "split_verification.json"
 
 
 @dataclass(frozen=True)
@@ -60,6 +65,7 @@ def run_group_split(
     splits_dir: Path = SPLITS_DIR,
     report_path: Path = REPORT_PATH,
     seed: int = 42,
+    detailed: bool = False,
 ) -> dict[str, object]:
     """Split manifest 70/15/15 per class grouped strictly by object_id."""
     entries = load_manifest(manifest_path)
@@ -98,13 +104,36 @@ def run_group_split(
     write_split_csv(splits_dir / "val.csv", val_all)
     write_split_csv(splits_dir / "test.csv", test_all)
 
-    report = verify_splits(splits_dir)
+    report = verify_splits(splits_dir, detailed=detailed)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report
 
 
-def verify_splits(splits_dir: Path = SPLITS_DIR) -> dict[str, object]:
+def split_breakdown(splits: dict[str, list[ManifestEntry]]) -> dict[str, object]:
+    """Images and distinct objects per class x split x source (for the v2 QA / error-analysis report)."""
+    per_class: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
+    per_source: dict[str, dict[str, dict[str, int]]] = {}
+    for split_name, entries in splits.items():
+        objs: dict[tuple[str, str], set[str]] = {}
+        src_objs: dict[str, set[str]] = {}
+        for e in entries:
+            cell = per_class.setdefault(e.item_id, {}).setdefault(split_name, {}).setdefault(
+                e.source, {"images": 0, "objects": 0}
+            )
+            cell["images"] += 1
+            objs.setdefault((e.item_id, e.source), set()).add(e.object_id)
+            src = per_source.setdefault(e.source, {}).setdefault(split_name, {"images": 0, "objects": 0})
+            src["images"] += 1
+            src_objs.setdefault(e.source, set()).add(e.object_id)
+        for (item_id, source), ids in objs.items():
+            per_class[item_id][split_name][source]["objects"] = len(ids)
+        for source, ids in src_objs.items():
+            per_source[source][split_name]["objects"] = len(ids)
+    return {"per_source": per_source, "per_class": per_class}
+
+
+def verify_splits(splits_dir: Path = SPLITS_DIR, detailed: bool = False) -> dict[str, object]:
     """Assert zero object_id overlap and full 20-class coverage across Train/Val/Test."""
     train = load_manifest(splits_dir / "train.csv")
     val = load_manifest(splits_dir / "val.csv")
@@ -141,20 +170,46 @@ def verify_splits(splits_dir: Path = SPLITS_DIR) -> dict[str, object]:
         "classes_covered": 20,
         "zero_leakage_verified": True,
     }
+    if detailed:
+        report["breakdown"] = split_breakdown({"train": train, "val": val, "test": test})
     print("[PASS] GroupShuffleSplit verified (0% object_id leakage, all 20 classes covered):")
     print(json.dumps(report, indent=2))
     return report
 
 
-def main() -> int:
+def resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Pick manifest/splits/report paths; explicit flags override the --model-version defaults."""
+    if args.model_version == "v2":
+        manifest, splits_dir, report = V2_MANIFEST_PATH, V2_SPLITS_DIR, V2_REPORT_PATH
+    else:
+        manifest, splits_dir, report = MANIFEST_PATH, SPLITS_DIR, REPORT_PATH
+    return (
+        args.manifest or manifest,
+        args.splits_dir or splits_dir,
+        args.report_path or report,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EcoSort Object-Level GroupShuffleSplit")
     parser.add_argument("--verify-only", action="store_true", help="Only verify existing split CSVs")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--model-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="v1 (default) keeps original paths; v2 uses manifest_v2.csv, splits_v2/ and ml/reports/v2/.",
+    )
+    parser.add_argument("--manifest", type=Path, default=None)
+    parser.add_argument("--splits-dir", type=Path, default=None)
+    parser.add_argument("--report-path", type=Path, default=None)
+    args = parser.parse_args(argv)
+    manifest, splits_dir, report_path = resolve_paths(args)
+    detailed = args.model_version == "v2"
 
     if args.verify_only:
-        verify_splits()
+        verify_splits(splits_dir, detailed=detailed)
     else:
-        run_group_split()
+        run_group_split(manifest, splits_dir, report_path, detailed=detailed)
     return 0
 
 

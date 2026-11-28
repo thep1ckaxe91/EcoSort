@@ -1,18 +1,49 @@
 #!/usr/bin/env python3
-"""Verify exported mobile/assets/models/ecosort_v1.tflite contract, parity, and latency."""
+"""Verify exported EcoSort TFLite models: contract, Keras<->TFLite parity, and latency.
+
+No arguments: the original v1 check of mobile/assets/models/ecosort_v1.tflite (unchanged).
+``--model-version v2``: strict acceptance check of ecosort_v2.tflite. It FAILS (non-zero exit)
+instead of passing when the test CSV is missing/empty, images are missing, the Keras v2 reference
+predictions are missing, the samples cannot be proven identical, or the model is the v1 artifact.
+"""
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
+import platform
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 from PIL import Image
 import tensorflow as tf
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "ml" / "src"))
+
+from ecosort_ml.artifacts import MAX_TFLITE_BYTES, artifact_paths  # noqa: E402
+from ecosort_ml.tflite_runner import ContractError, Runner, make_tflite_runner  # noqa: E402
+from ecosort_ml.evalkit import (  # noqa: E402
+    PREPROCESSING_DESC,
+    EvalDataError,
+    dump_json,
+    fingerprint_rows,
+    load_keras_predictions,
+    load_rgb_224,
+    match_keras_predictions,
+    read_rows,
+    repo_relative,
+    resolve_image,
+    sha256_file,
+    validate_eval_rows,
+)
+
+MAX_DRIFT = 0.02
 TFLITE_PATH = REPO_ROOT / "mobile" / "assets" / "models" / "ecosort_v1.tflite"
 TEST_CSV_PATH = REPO_ROOT / "ml" / "datasets" / "splits" / "test.csv"
 METRICS_PATH = REPO_ROOT / "ml" / "reports" / "metrics.json"
@@ -100,5 +131,129 @@ def verify_tflite() -> int:
     return 0
 
 
+class AcceptanceError(AssertionError):
+    """v2 acceptance criterion not met."""
+
+
+def verify_v2(
+    model_path: Path,
+    test_csv: Path,
+    keras_predictions: Path,
+    log_path: Path | None,
+    v1_reference: Path,
+    repo_root: Path = REPO_ROOT,
+    runner_factory: Callable[[Path], Runner] = make_tflite_runner,
+    max_drift: float = MAX_DRIFT,
+) -> dict[str, object]:
+    """Strict v2 acceptance: every data precondition is checked BEFORE any inference."""
+    print("======================================================================")
+    print("   EcoSort v2 TFLite Acceptance (contract, real-data parity, latency) ")
+    print("======================================================================")
+    # 1. Right artifact, right size
+    if not model_path.is_file():
+        raise AcceptanceError(f"Missing v2 TFLite file: {model_path}")
+    model_sha = sha256_file(model_path)
+    if v1_reference.is_file() and (
+        model_path.resolve() == v1_reference.resolve() or model_sha == sha256_file(v1_reference)
+    ):
+        raise AcceptanceError(f"{model_path} is the v1 artifact ({v1_reference.name}); refusing to accept it as v2.")
+    size_bytes = model_path.stat().st_size
+    if size_bytes >= MAX_TFLITE_BYTES:
+        raise AcceptanceError(f"TFLite size {size_bytes} bytes >= 5 MB limit")
+    print(f"[PASS] Model {repo_relative(model_path, repo_root)}: {size_bytes} bytes (< 5 MB), sha256 {model_sha[:12]}")
+
+    # 2. Real data present and identical to what Keras v2 saw
+    rows = read_rows(test_csv)
+    validate_eval_rows(rows, repo_root)
+    fingerprint, row_sha = fingerprint_rows(rows, repo_root)
+    keras_pred = match_keras_predictions(rows, row_sha, load_keras_predictions(keras_predictions))
+    y_true = np.array([int(r["class_index"]) for r in rows])
+    print(f"[PASS] {len(rows)} real test images, fingerprint {fingerprint[:12]}, all matched to Keras v2 predictions.")
+
+    # 3. TFLite inference with the identical loader
+    run = runner_factory(model_path)
+    tflite_pred: list[int] = []
+    latencies_ms: list[float] = []
+    for r in rows:
+        img = load_rgb_224(resolve_image(r, repo_root))
+        t0 = time.perf_counter()
+        probs = np.asarray(run(img))
+        latencies_ms.append((time.perf_counter() - t0) * 1000.0)
+        if probs.shape != (20,) or abs(float(np.sum(probs)) - 1.0) >= 1e-2:
+            raise AcceptanceError(f"Invalid softmax output for {r['filepath']}: shape {probs.shape}, sum {np.sum(probs)}")
+        tflite_pred.append(int(np.argmax(probs)))
+
+    keras_acc = float(np.mean(np.array(keras_pred) == y_true))
+    tflite_acc = float(np.mean(np.array(tflite_pred) == y_true))
+    drift = abs(keras_acc - tflite_acc)
+    agreement = float(np.mean(np.array(keras_pred) == np.array(tflite_pred)))
+    sources: dict[str, int] = {}
+    for r in rows:
+        sources[r.get("source", "unknown")] = sources.get(r.get("source", "unknown"), 0) + 1
+
+    log = {
+        "checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "model": repo_relative(model_path, repo_root),
+        "model_sha256": model_sha,
+        "model_size_bytes": size_bytes,
+        "test_csv": repo_relative(test_csv, repo_root),
+        "test_fingerprint": fingerprint,
+        "n_images": len(rows),
+        "n_images_by_source": sources,
+        "keras_reference": repo_relative(keras_predictions, repo_root),
+        "preprocessing": PREPROCESSING_DESC,
+        "keras_v2_top1": round(keras_acc, 4),
+        "tflite_v2_top1": round(tflite_acc, 4),
+        "abs_drift": round(drift, 4),
+        "max_allowed_drift": max_drift,
+        "keras_tflite_top1_agreement": round(agreement, 4),
+        "latency_ms_mean": round(float(np.mean(latencies_ms)), 3),
+        "latency_ms_p95": round(float(np.percentile(latencies_ms, 95)), 3),
+        "environment": {"python": platform.python_version(), "tensorflow": getattr(tf, "__version__", "n/a")},
+        "passed": drift <= max_drift,
+    }
+    if log_path is not None:
+        dump_json(log_path, log)
+    print(
+        f"[INFO] Keras v2 top-1 {keras_acc:.4f} | TFLite v2 top-1 {tflite_acc:.4f} | "
+        f"drift {drift:.4f} | agreement {agreement:.4f} | n={len(rows)}"
+    )
+    if drift > max_drift:
+        raise AcceptanceError(f"Keras v2 vs TFLite v2 drift {drift:.4f} > {max_drift}")
+    print(f"[PASS] Keras v2 vs TFLite v2 drift {drift:.4f} <= {max_drift:.4f}")
+    print("ALL v2 ACCEPTANCE CHECKS PASSED (EXIT CODE 0)")
+    return log
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="EcoSort TFLite verifier")
+    parser.add_argument("--model-version", choices=["v1", "v2"], default="v1")
+    parser.add_argument("--model", type=Path, default=None, help="v2: override model path")
+    parser.add_argument("--test-csv", type=Path, default=None, help="v2: real test CSV (default splits_v2/test.csv)")
+    parser.add_argument("--keras-predictions", type=Path, default=None)
+    parser.add_argument("--log", type=Path, default=None, help="v2: JSON log path (default ml/reports/v2/...)")
+    args = parser.parse_args(argv)
+
+    if args.model_version == "v1":
+        if any(v is not None for v in (args.model, args.test_csv, args.keras_predictions, args.log)):
+            parser.error("--model/--test-csv/--keras-predictions/--log apply to --model-version v2 only")
+        return verify_tflite()
+
+    v2 = artifact_paths("v2", REPO_ROOT)
+    v1 = artifact_paths("v1", REPO_ROOT)
+    try:
+        verify_v2(
+            model_path=args.model or v2.mobile_tflite,
+            test_csv=args.test_csv or (v2.splits_dir / "test.csv"),
+            keras_predictions=args.keras_predictions or v2.keras_test_predictions,  # type: ignore[arg-type]
+            log_path=args.log or v2.tflite_verification_log,
+            v1_reference=v1.mobile_tflite,
+        )
+    except (AcceptanceError, ContractError, EvalDataError) as exc:
+        print(f"[FAIL] {exc}")
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(verify_tflite())
+    raise SystemExit(main())

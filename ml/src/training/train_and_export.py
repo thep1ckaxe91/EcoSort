@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Train MobileNetV3-Small on Group-Split data, export FP16 TFLite (<5MB), evaluate & plot Grad-CAM."""
+"""Train MobileNetV3-Small on Group-Split data, export FP16 TFLite (<5MB), evaluate & plot Grad-CAM.
+
+Default (no arguments) is the original v1 run. ``--model-version v2`` reads ml/datasets/splits_v2,
+writes reports to ml/reports/v2 and the model to mobile/assets/models/ecosort_v2.tflite, and never
+touches any v1 artifact.
+"""
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -17,6 +24,12 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 import tensorflow as tf
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT / "ml" / "src"))
+
+from ecosort_ml.artifacts import ArtifactPaths, artifact_paths  # noqa: E402
+from ecosort_ml.evalkit import KERAS_PRED_FIELDS, load_rgb_224, sha256_file, write_rows  # noqa: E402
+from ecosort_ml.vn_test import check_frozen_vn_test  # noqa: E402
+
 LABELS_PATH = REPO_ROOT / "knowledge_base" / "labels.txt"
 RULES_PATH = REPO_ROOT / "knowledge_base" / "rules.json"
 SPLITS_DIR = REPO_ROOT / "ml" / "datasets" / "splits"
@@ -62,7 +75,8 @@ def build_tf_dataset(paths: list[str], labels: list[int], training: bool) -> tf.
 
     def _load(path: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
         raw = tf.io.read_file(path)
-        img = tf.io.decode_jpeg(raw, channels=3)
+        img = tf.io.decode_image(raw, channels=3, expand_animations=False)  # JPEG and PNG
+        img.set_shape([None, None, 3])
         img = tf.image.resize(img, IMG_SIZE)
         img = tf.cast(img, tf.float32)  # [0.0, 255.0] for MobileNetV3 include_preprocessing=True
         return img, label
@@ -246,8 +260,45 @@ def generate_gradcam_samples(
     return saved_files
 
 
-def train_and_export() -> int:
+def write_keras_reference_predictions(
+    export_model: tf.keras.Model,
+    test_csv: Path,
+    out_csv: Path,
+    batch: int = BATCH_SIZE,
+) -> int:
+    """Predict the test split with the shared PIL loader so TFLite parity compares identical inputs."""
+    with test_csv.open("r", encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    out_rows: list[dict[str, object]] = []
+    for start in range(0, len(rows), batch):
+        chunk = rows[start : start + batch]
+        imgs = np.stack([load_rgb_224(REPO_ROOT / r["filepath"]) for r in chunk])
+        probs = export_model.predict(imgs, verbose=0)
+        for r, p in zip(chunk, probs):
+            out_rows.append(
+                {
+                    "filepath": r["filepath"],
+                    "class_index": int(r["class_index"]),
+                    "sha256": sha256_file(REPO_ROOT / r["filepath"]),
+                    "keras_pred": int(np.argmax(p)),
+                    "keras_conf": f"{float(np.max(p)):.6f}",
+                }
+            )
+    write_rows(out_csv, out_rows, KERAS_PRED_FIELDS)  # type: ignore[arg-type]
+    return len(out_rows)
+
+
+def train_and_export(paths: ArtifactPaths | None = None, allow_unfrozen_vn: bool = False) -> int:
     """Run full 2-stage training, TFLite FP16 export, evaluation, and Grad-CAM generation."""
+    paths = paths or artifact_paths("v1", REPO_ROOT)
+    splits_dir = paths.splits_dir
+    reports_dir = paths.reports_dir
+    if paths.version == "v2" and not allow_unfrozen_vn:
+        # Fine-tune only after real VN photos were QA'd and the VN test list was frozen.
+        assert paths.test_vn_csv is not None and paths.test_vn_manifest is not None
+        vn_rows, _ = check_frozen_vn_test(paths.test_vn_csv, paths.test_vn_manifest, splits_dir, REPO_ROOT)
+        print(f"[INFO] Frozen real-VN test list verified: {len(vn_rows)} images.")
+
     tf.keras.utils.set_random_seed(42)
     configure_gpu()
 
@@ -257,9 +308,9 @@ def train_and_export() -> int:
         r["class_index"]: STREAM_ORDER.index(r["default_stream"]) for r in kb["rules"]
     }
 
-    tr_paths, tr_labels = load_split_csv(SPLITS_DIR / "train.csv")
-    va_paths, va_labels = load_split_csv(SPLITS_DIR / "val.csv")
-    te_paths, te_labels = load_split_csv(SPLITS_DIR / "test.csv")
+    tr_paths, tr_labels = load_split_csv(splits_dir / "train.csv")
+    va_paths, va_labels = load_split_csv(splits_dir / "val.csv")
+    te_paths, te_labels = load_split_csv(splits_dir / "test.csv")
 
     train_ds = build_tf_dataset(tr_paths, tr_labels, training=True)
     val_ds = build_tf_dataset(va_paths, va_labels, training=False)
@@ -316,25 +367,37 @@ def train_and_export() -> int:
     converter.target_spec.supported_types = [tf.float16]
     tflite_bytes = converter.convert()
 
-    WEIGHTS_OUT.parent.mkdir(parents=True, exist_ok=True)
-    WEIGHTS_OUT.write_bytes(tflite_bytes)
-    MOBILE_MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(WEIGHTS_OUT, MOBILE_MODEL_OUT)
-
     size_bytes = len(tflite_bytes)
     size_mb = size_bytes / (1024 * 1024)
-    print(f"[EXPORT] Wrote TFLite FP16 model: {size_mb:.2f} MB ({size_bytes} bytes)")
+    if paths.version != "v1" and size_bytes >= MAX_TFLITE_BYTES:
+        # v2+: refuse to write an oversized model into mobile/assets at all.
+        raise RuntimeError(f"Exported TFLite exceeds 5 MB ceiling: {size_mb:.2f} MB")
+
+    paths.weights_tflite.parent.mkdir(parents=True, exist_ok=True)
+    paths.weights_tflite.write_bytes(tflite_bytes)
+    paths.mobile_tflite.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(paths.weights_tflite, paths.mobile_tflite)
+
+    print(f"[EXPORT] Wrote TFLite FP16 model: {size_mb:.2f} MB ({size_bytes} bytes) -> {paths.mobile_tflite}")
     if size_bytes >= MAX_TFLITE_BYTES:
         raise RuntimeError(f"Exported TFLite exceeds 5 MB ceiling: {size_mb:.2f} MB")
 
+    if paths.keras_model is not None:
+        paths.keras_model.parent.mkdir(parents=True, exist_ok=True)
+        export_model.save(paths.keras_model)
+        print(f"[EXPORT] Saved Keras inference model -> {paths.keras_model}")
+    if paths.keras_test_predictions is not None:
+        n_ref = write_keras_reference_predictions(export_model, splits_dir / "test.csv", paths.keras_test_predictions)
+        print(f"[EXPORT] Wrote {n_ref} Keras reference predictions (PIL loader) -> {paths.keras_test_predictions}")
+
     # Save confusion matrices & Grad-CAM figures
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
     plot_confusion(
         y_true_3,
         y_pred_3,
         STREAM_NAMES_VI,
         f"EcoSort 3-Stream Confusion Matrix (Acc={acc_3 * 100:.1f}%, F1={f1_3:.2f})",
-        REPORTS_DIR / "confusion_matrix_3streams.png",
+        reports_dir / "confusion_matrix_3streams.png",
         figsize=(6, 5),
     )
     plot_confusion(
@@ -342,7 +405,7 @@ def train_and_export() -> int:
         y_pred,
         labels,
         f"EcoSort 20-Class Confusion Matrix (Acc={acc_20 * 100:.1f}%, F1={f1_20:.2f})",
-        REPORTS_DIR / "confusion_matrix_20classes.png",
+        reports_dir / "confusion_matrix_20classes.png",
         figsize=(12, 10),
     )
     gradcam_files = generate_gradcam_samples(
@@ -351,11 +414,12 @@ def train_and_export() -> int:
         test_paths=te_paths,
         test_labels=te_labels,
         labels=labels,
-        out_dir=GRADCAM_DIR,
+        out_dir=paths.gradcam_dir,
         num_samples=6,
     )
 
     metrics_payload = {
+        "model_version": paths.version,
         "model_architecture": "MobileNetV3Small (ImageNet pretrained, include_preprocessing=True)",
         "quantization": "FP16 post-training quantization",
         "tflite_size_bytes": size_bytes,
@@ -370,10 +434,39 @@ def train_and_export() -> int:
         "test_3_stream_macro_f1": round(f1_3, 4),
         "gradcam_samples": gradcam_files,
     }
-    (REPORTS_DIR / "metrics.json").write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
-    print(f"[PASS] Saved metrics and evaluation figures to {REPORTS_DIR}.")
+    if paths.version == "v1":
+        metrics_payload.pop("model_version")
+    else:
+        metrics_payload["eval_note"] = (
+            "Keras metrics above use the tf.data loader on the full v2 test split; "
+            "TFLite parity uses keras_test_predictions.csv (PIL loader) - see tflite_verification.json."
+        )
+    paths.metrics.parent.mkdir(parents=True, exist_ok=True)
+    paths.metrics.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
+    print(f"[PASS] Saved metrics and evaluation figures to {reports_dir}.")
     return 0
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="EcoSort MobileNetV3Small training + FP16 TFLite export")
+    parser.add_argument(
+        "--model-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="v1 (default) keeps the original output paths; v2 writes ecosort_v2.tflite and ml/reports/v2/.",
+    )
+    parser.add_argument(
+        "--allow-unfrozen-vn",
+        action="store_true",
+        help="v2 only: skip the frozen real-VN test check (debug runs; results must not be reported).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    return train_and_export(artifact_paths(args.model_version, REPO_ROOT), allow_unfrozen_vn=args.allow_unfrozen_vn)
+
+
 if __name__ == "__main__":
-    raise SystemExit(train_and_export())
+    raise SystemExit(main())

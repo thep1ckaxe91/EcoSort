@@ -274,6 +274,7 @@ def build_dataset(
     local_vn_dir: Path = LOCAL_VN_DIR,
     vn_replace_classes: bool = False,
     min_vn_objects: int = 8,
+    manifest_path: Path = MANIFEST_PATH,
 ) -> int:
     """Download balanced 20-class dataset + local_vn overrides, validate, and write manifest.csv."""
     labels = load_canonical_labels()
@@ -343,14 +344,14 @@ def build_dataset(
         all_records.extend(sorted(per_class_records[idx], key=lambda r: r.filepath))
     all_records.extend(local_records)
 
-    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with MANIFEST_PATH.open("w", encoding="utf-8", newline="") as f:
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with manifest_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["filepath", "class_index", "item_id", "object_id", "session_id", "source"])
         for r in all_records:
             writer.writerow([r.filepath, r.class_index, r.item_id, r.object_id, r.session_id, r.source])
 
-    print(f"[PASS] Wrote {len(all_records)} verified image records to {MANIFEST_PATH}.")
+    print(f"[PASS] Wrote {len(all_records)} verified image records to {manifest_path}.")
     for idx, item_id in enumerate(labels):
         cls_local = [r for r in local_records if r.class_index == idx]
         n_cls = len(per_class_records[idx]) + len(cls_local)
@@ -379,6 +380,12 @@ def main() -> int:
         help="Replace HuggingFace images with local_vn photos for classes meeting --min-vn-objects.",
     )
     parser.add_argument("--min-vn-objects", type=int, default=8)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=MANIFEST_PATH,
+        help="Output manifest CSV (default ml/datasets/manifest.csv; v2 uses ml/datasets/manifest_v2.csv).",
+    )
     args = parser.parse_args()
 
     return build_dataset(
@@ -387,6 +394,7 @@ def main() -> int:
         local_vn_dir=args.local_vn_dir,
         vn_replace_classes=args.vn_replace_classes,
         min_vn_objects=args.min_vn_objects,
+        manifest_path=args.manifest,
     )
 
 
